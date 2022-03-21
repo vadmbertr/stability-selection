@@ -1,0 +1,81 @@
+---
+title: "Mise en oeuvre"
+output: html_notebook
+---
+
+```{r}
+library(glmnet)
+library(purrr)
+```
+
+```{r}
+load("data/TB.Rdata")
+# nommage des variables
+X.train@Dimnames <- list(NULL, paste0("V", 1:ncol(X.train)))
+X.test@Dimnames <- list(NULL, paste0("V", 1:ncol(X.test)))
+# transformation de la réponse en 0 / 1
+y.train <- (y.train + 1) / 2
+y.test <- (y.test + 1) / 2
+```
+
+```{r}
+# retourne le taux d'aggrément
+get_score <- function (y_pred) {
+  return(sum(y.test == y_pred) / length(y.test) * 100)
+}
+```
+
+```{r}
+# retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est strictement positif pour un lambda donné
+get_model_coefficients <- function (lambda) {
+  folds_size_coef <- .5
+  full_size <- nrow(X.train)
+  fold_idx <- sample(1:full_size, full_size * folds_size_coef)
+  X_fold <- X.train[fold_idx, ]
+  y_fold <- y.train[fold_idx]
+  return(glmnet(X_fold, y_fold, family = "binomial", lambda = lambda)$beta > 0)
+}
+```
+
+```{r}
+# entraine un modèle de régression logistique en utilisant des variables stables
+# estime les classes
+# retourne le taux d'agrément
+evaluate_stable_vars <- function (vars_idx) {
+  form <- as.formula(paste0("y ~ ", paste0(names(vars_idx), collapse = " + ")))
+  Xy <- cbind(as.data.frame(as.matrix(X.train[, vars_idx])), data.frame(y = y.train))
+  mod <- glm(form, data = Xy, family = "binomial")
+  y_pred <- as.integer(predict(mod, newdata = as.data.frame(as.matrix(X.test[, vars_idx])), type = "response") > .5)
+  return(get_score(y_pred))
+}
+```
+
+```{r}
+mod_cv <- cv.glmnet(X.train, y.train, family = "binomial")
+mod_cv_pred <- predict(mod_cv, newx = X.test, type = "class", s = mod_cv$lambda.1se)[, 1]
+mod_cv_score <- get_score(mod_cv_pred)
+mod_cv_nz <- mod_cv$nzero[[which(mod_cv$lambda == mod_cv$lambda.1se)]]
+lambda <- mod_cv$lambda
+```
+
+```{r}
+n_models <- 100
+# liste de n_models matrices de 0 / 1 indiquant la sélection ou non d'une variable pour un lambda donné
+n_grid_coefs <- sapply(1:n_models, function (i) get_model_coefficients(lambda))
+# passage à une matrice de fréquences des variables (pour des lambda différents)
+grid_coefs <- reduce(n_grid_coefs, `+`) / n_models
+# et enfin on garde la fréquence max de chaque variable
+max_coefs <- apply(grid_coefs, 1, max)
+```
+
+```{r}
+stability_indices <- seq(.6, 1, by = .05)
+names(stability_indices) <- stability_indices
+# index des variables stables pour différents seuils
+vars_idx <- sapply(stability_indices, function (s_idx) which(max_coefs >= s_idx))
+# scores des régressions logistiques sans pénalisation associés aux différents seuils
+scores <- sapply(vars_idx, function (v_idx) evaluate_stable_vars(v_idx))
+# nombre de variables sélectionnées pour les différentes seuils
+nzero <- sapply(vars_idx, length)
+stability_indexes_summary <- data.frame(score = scores, nzero = nzero)
+```
