@@ -1,0 +1,23 @@
+---
+title: "Projet n°8 : stability selection"
+subtitle: "M1 parcours SSD -- UE Apprentissage Statistique I"
+
+date: "29/04/2022"
+
+author:
+  \begin{tabular}{ccc}
+  Vadim \textsc{Bertrand} & Lola \textsc{Cottin} & Marie \textsc{Gaffet}
+  \end{tabular}
+  
+header-includes:
+   - \usepackage{caption}
+   - \usepackage{longtable}
+   - \usepackage{booktabs}
+   - \usepackage{subcaption}
+   
+output:
+  pdf_document:
+    number_sections: true
+urlcolor: blue
+---
+
