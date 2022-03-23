@@ -116,7 +116,7 @@ stability_indices_summary <- run_stability_selection_model(X.train, data.frame(y
 ```
 
 ```{r}
-cv_stability_indices_summary <- cv_run_stability_selection_model(X.train, y.train, lambda, 5)
+cv_stability_indices_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
 ```
 
 ```{r}
