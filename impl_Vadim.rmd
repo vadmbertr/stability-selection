@@ -20,17 +20,16 @@ y.test <- (y.test + 1) / 2
 
 ```{r}
 # retourne le taux d'aggrément
-get_score <- function (y_pred) {
-  return(sum(y.test == y_pred) / length(y.test) * 100)
+get_score <- function (y_test, y_pred) {
+  return(sum(y_test == y_pred) / length(y_test) * 100)
 }
 ```
 
 ```{r}
 # retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est strictement positif pour un lambda donné
-get_model_coefficients <- function (lambda) {
-  folds_size_coef <- .5
+get_selected_vars <- function (lambda, sample_size_coef) {
   full_size <- nrow(X.train)
-  fold_idx <- sample(1:full_size, full_size * folds_size_coef)
+  fold_idx <- sample(full_size, full_size * sample_size_coef)
   X_fold <- X.train[fold_idx, ]
   y_fold <- y.train[fold_idx]
   return(glmnet(X_fold, y_fold, family = "binomial", lambda = lambda)$beta > 0)
@@ -41,41 +40,85 @@ get_model_coefficients <- function (lambda) {
 # entraine un modèle de régression logistique en utilisant des variables stables
 # estime les classes
 # retourne le taux d'agrément
-evaluate_stable_vars <- function (vars_idx) {
-  form <- as.formula(paste0("y ~ ", paste0(names(vars_idx), collapse = " + ")))
-  Xy <- cbind(as.data.frame(as.matrix(X.train[, vars_idx])), data.frame(y = y.train))
-  mod <- glm(form, data = Xy, family = "binomial")
-  y_pred <- as.integer(predict(mod, newdata = as.data.frame(as.matrix(X.test[, vars_idx])), type = "response") > .5)
-  return(get_score(y_pred))
+evaluate_stable_vars <- function (X_train, y_train, X_test, y_test) {
+  form <- as.formula(paste0("y ~ ", paste0(colnames(X_train), collapse = " + ")))
+  mod <- glm(form, data = cbind(X_train, y_train), family = "binomial")
+  y_pred <- as.integer(predict(mod, newdata = X_test, type = "response") > .5)
+  return(get_score(y_test, y_pred))
 }
 ```
 
 ```{r}
-mod_cv <- cv.glmnet(X.train, y.train, family = "binomial")
+run_stability_selection_model <- function (X_train, y_train, X_test, y_test, lambda, sample_size_coef = .5) {
+  n_paths <- 100
+  # liste de n_models matrices de 0 / 1 indiquant la sélection ou non d'une variable pour un lambda donné
+  vars_select <- sapply(1:n_paths, function (i) get_selected_vars(lambda, sample_size_coef))
+  # passage à une matrice de fréquences des variables (pour des lambda différents)
+  vars_freq <- reduce(vars_select, `+`) / n_paths
+  # et enfin on garde la fréquence max de chaque variable
+  vars_max_freq <- apply(vars_freq, 1, max)
+  stability_indices <- seq(.6, 1, by = .05)
+  names(stability_indices) <- stability_indices
+  # index des variables stables pour différents seuils
+  vars_idx <- sapply(stability_indices, function (s_idx) which(vars_max_freq >= s_idx))
+  # scores des régressions logistiques sans pénalisation associés aux différents seuils
+  scores <- sapply(vars_idx, function (v_idx)
+          evaluate_stable_vars(as.data.frame(as.matrix(X_train[, v_idx])), y_train,
+                               as.data.frame(as.matrix(X_test[, v_idx])), y_test))
+  # nombre de variables sélectionnées pour les différentes seuils
+  nzero <- sapply(vars_idx, length)
+  return(data.frame(indice = stability_indices, score = scores, nzero = nzero))
+}
+```
+
+```{r}
+cv_run_stability_selection_model <- function (X_train, y_train, lambda, n_folds = 10) {
+  folds_id <- sample(rep(seq(n_folds), length = nrow(X_train)))
+  cv_stability_indices_summary <- lapply(1:n_folds, function (fid) {
+    whichs <- folds_id == fid
+    fold_X_train <- X_train[! whichs, ]
+    fold_y_train <- data.frame(y = y_train[! whichs])
+    fold_X_test <- X_train[whichs, ]
+    fold_y_test <- y_train[whichs]
+    return(run_stability_selection_model(fold_X_train, fold_y_train,
+                                         fold_X_test, fold_y_test,
+                                         lambda))
+  })
+  return(do.call(rbind, cv_stability_indices_summary))
+}
+```
+
+```{r}
+cv_get_optimal_stability_indices <- function (stability_indices_summary) {
+  stability_indices <- unique(stability_indices_summary$indice)
+  mean_sd <- lapply(stability_indices, function (sid) {
+    scores <- stability_indices_summary$score[stability_indices_summary$indice == sid]
+    return(data.frame(mean = mean(100 - scores), sd = sd(100 - scores)))
+  })
+  mean_sd <- do.call(rbind, mean_sd)
+  mean_sd$indice <- stability_indices
+  indice_min <- max(mean_sd$indice[which(mean_sd$mean == min(mean_sd$mean))])
+  indice_1sd <- max(mean_sd$indice[which(mean_sd$mean <= mean_sd$mean[[indice_min]] + mean_sd$sd[[indice_min]])])
+  return(list(indice.min = indice_min, indice.1sd = indice_1sd))
+}
+```
+
+```{r}
+mod_cv <- cv.glmnet(X.train, y.train, type.measure = "class", family = "binomial")
 mod_cv_pred <- predict(mod_cv, newx = X.test, type = "class", s = mod_cv$lambda.1se)[, 1]
-mod_cv_score <- get_score(mod_cv_pred)
+mod_cv_score <- get_score(y.test, mod_cv_pred)
 mod_cv_nz <- mod_cv$nzero[[which(mod_cv$lambda == mod_cv$lambda.1se)]]
 lambda <- mod_cv$lambda
 ```
 
 ```{r}
-n_models <- 100
-# liste de n_models matrices de 0 / 1 indiquant la sélection ou non d'une variable pour un lambda donné
-n_grid_coefs <- sapply(1:n_models, function (i) get_model_coefficients(lambda))
-# passage à une matrice de fréquences des variables (pour des lambda différents)
-grid_coefs <- reduce(n_grid_coefs, `+`) / n_models
-# et enfin on garde la fréquence max de chaque variable
-max_coefs <- apply(grid_coefs, 1, max)
+stability_indices_summary <- run_stability_selection_model(X.train, data.frame(y = y.train), X.test, y.test, lambda)
 ```
 
 ```{r}
-stability_indices <- seq(.6, 1, by = .05)
-names(stability_indices) <- stability_indices
-# index des variables stables pour différents seuils
-vars_idx <- sapply(stability_indices, function (s_idx) which(max_coefs >= s_idx))
-# scores des régressions logistiques sans pénalisation associés aux différents seuils
-scores <- sapply(vars_idx, function (v_idx) evaluate_stable_vars(v_idx))
-# nombre de variables sélectionnées pour les différentes seuils
-nzero <- sapply(vars_idx, length)
-stability_indexes_summary <- data.frame(score = scores, nzero = nzero)
+cv_stability_indices_summary <- cv_run_stability_selection_model(X.train, y.train, lambda, 5)
+```
+
+```{r}
+best_indices <- cv_get_optimal_stability_indices(cv_stability_indices_summary)
 ```
