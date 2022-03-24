@@ -11,8 +11,8 @@ library(purrr)
 ```{r}
 load("data/TB.Rdata")
 # nommage des variables
-X.train@Dimnames <- list(NULL, paste0("V", 1:ncol(X.train)))
-X.test@Dimnames <- list(NULL, paste0("V", 1:ncol(X.test)))
+# X.train@Dimnames <- list(NULL, paste0("V", 1:ncol(X.train)))
+# X.test@Dimnames <- list(NULL, paste0("V", 1:ncol(X.test)))
 # transformation de la réponse en 0 / 1
 y.train <- (y.train + 1) / 2
 y.test <- (y.test + 1) / 2
@@ -37,18 +37,19 @@ get_selected_vars <- function (lambda, sample_size_coef) {
 ```
 
 ```{r}
-# entraine un modèle de régression logistique en utilisant des variables stables
+# entraine un modèle de régression logistique non pénalisé (avec un jeu restreint aux variables stables)
 # estime les classes
 # retourne le taux d'agrément
-evaluate_stable_vars <- function (X_train, y_train, X_test, y_test) {
-  form <- as.formula(paste0("y ~ ", paste0(colnames(X_train), collapse = " + ")))
-  mod <- glm(form, data = cbind(X_train, y_train), family = "binomial")
-  y_pred <- as.integer(predict(mod, newdata = X_test, type = "response") > .5)
+evaluate_stable_vars <- function (X_train, y_train, X_test, y_test, vars_idx) {
+  mod <- glm("y ~ .", data = cbind(as.data.frame(as.matrix(X_train[, vars_idx])), data.frame(y = y_train)),
+             family = "binomial")
+  y_pred <- as.integer(predict(mod, newdata = as.data.frame(as.matrix(X_test[, vars_idx])), type = "response") > .5)
   return(get_score(y_test, y_pred))
 }
 ```
 
 ```{r}
+# retourne un data.frame donnant le score et la taille du support selon le seuil de stabilité
 run_stability_selection_model <- function (X_train, y_train, X_test, y_test, lambda, sample_size_coef = .5) {
   n_paths <- 100
   # liste de n_models matrices de 0 / 1 indiquant la sélection ou non d'une variable pour un lambda donné
@@ -63,23 +64,27 @@ run_stability_selection_model <- function (X_train, y_train, X_test, y_test, lam
   vars_idx <- sapply(stability_indices, function (s_idx) which(vars_max_freq >= s_idx))
   # scores des régressions logistiques sans pénalisation associés aux différents seuils
   scores <- sapply(vars_idx, function (v_idx)
-          evaluate_stable_vars(as.data.frame(as.matrix(X_train[, v_idx])), y_train,
-                               as.data.frame(as.matrix(X_test[, v_idx])), y_test))
+          evaluate_stable_vars(X_train, y_train, X_test, y_test, v_idx))
   # nombre de variables sélectionnées pour les différentes seuils
   nzero <- sapply(vars_idx, length)
-  return(data.frame(indice = stability_indices, score = scores, nzero = nzero))
+  return(data.frame(indice = stability_indices, score = scores, nzero = nzero, vars.idx = I(vars_idx)))
 }
 ```
 
 ```{r}
+# retourne un data.frame donnant le score et la taille du support selon le seuil de stabilité pour n_folds modèles
 cv_run_stability_selection_model <- function (X_train, y_train, lambda, n_folds = 10) {
+  # assignation de chaque observation à un fold
   folds_id <- sample(rep(seq(n_folds), length = nrow(X_train)))
   cv_stability_indices_summary <- lapply(1:n_folds, function (fid) {
     whichs <- folds_id == fid
+    # restriction du jeu d'entrainement aux obsrevations n'appartenant pas au fold fid
     fold_X_train <- X_train[! whichs, ]
-    fold_y_train <- data.frame(y = y_train[! whichs])
+    fold_y_train <- y_train[! whichs]
+    # et du jeu de test à celles appartenant à fid
     fold_X_test <- X_train[whichs, ]
     fold_y_test <- y_train[whichs]
+    # appel à la fonction générique
     return(run_stability_selection_model(fold_X_train, fold_y_train,
                                          fold_X_test, fold_y_test,
                                          lambda))
@@ -89,6 +94,7 @@ cv_run_stability_selection_model <- function (X_train, y_train, lambda, n_folds 
 ```
 
 ```{r}
+# à partir d'un data.frame contenant les résultats de la cross-validation retourne les indices optimaux
 cv_get_optimal_stability_indices <- function (stability_indices_summary) {
   stability_indices <- unique(stability_indices_summary$indice)
   mean_sd <- lapply(stability_indices, function (sid) {
@@ -97,28 +103,36 @@ cv_get_optimal_stability_indices <- function (stability_indices_summary) {
   })
   mean_sd <- do.call(rbind, mean_sd)
   mean_sd$indice <- stability_indices
+  # indice de stabilité pour la meilleure classification
   indice_min <- max(mean_sd$indice[which(mean_sd$mean == min(mean_sd$mean))])
+  # indice de stabilité pour le meilleur compromis classification / taille du support
   indice_1sd <- max(mean_sd$indice[which(mean_sd$mean <= mean_sd$mean[[indice_min]] + mean_sd$sd[[indice_min]])])
   return(list(indice.min = indice_min, indice.1sd = indice_1sd))
 }
 ```
 
 ```{r}
-mod_cv <- cv.glmnet(X.train, y.train, type.measure = "class", family = "binomial")
-mod_cv_pred <- predict(mod_cv, newx = X.test, type = "class", s = mod_cv$lambda.1se)[, 1]
-mod_cv_score <- get_score(y.test, mod_cv_pred)
-mod_cv_nz <- mod_cv$nzero[[which(mod_cv$lambda == mod_cv$lambda.1se)]]
-lambda <- mod_cv$lambda
+lasso_mod <- cv.glmnet(X.train, y.train, type.measure = "class", family = "binomial")
+lasso_pred <- predict(lasso_mod, newx = X.test, type = "class", s = lasso_mod$lambda.1se)[, 1]
+lasso_score <- get_score(y.test, lasso_pred)
+lasso_nz <- lasso_mod$nzero[[which(lasso_mod$lambda == lasso_mod$lambda.1se)]]
+lambda <- lasso_mod$lambda
 ```
 
 ```{r}
-stability_indices_summary <- run_stability_selection_model(X.train, data.frame(y = y.train), X.test, y.test, lambda)
+stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, lambda)
 ```
 
 ```{r}
-cv_stability_indices_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
+cv_stab_sel_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
 ```
 
 ```{r}
-best_indices <- cv_get_optimal_stability_indices(cv_stability_indices_summary)
+best_indices <- cv_get_optimal_stability_indices(cv_stab_sel_summary)
+vars_idx_min <- stab_sel_summary$vars.idx[[which(stab_sel_summary$indice == best_indices$indice.min)]]
+vars_idx_1sd <- stab_sel_summary$vars.idx[[which(stab_sel_summary$indice == best_indices$indice.1sd)]]
+stab_sel_min_score <- evaluate_stable_vars(X.train, y.train, X.test, y.test, vars_idx_min)
+stab_sel_min_nz <- length(vars_idx_min)
+stab_sel_1sd_score <- evaluate_stable_vars(X.train, y.train, X.test, y.test, vars_idx_1sd)
+stab_sel_1sd_nz <- length(vars_idx_1sd)
 ```
