@@ -11,9 +11,6 @@ library(purrr)
 
 ```{r}
 load("data/TB.Rdata")
-# nommage des variables
-# X.train@Dimnames <- list(NULL, paste0("V", 1:ncol(X.train)))
-# X.test@Dimnames <- list(NULL, paste0("V", 1:ncol(X.test)))
 # transformation de la réponse en 0 / 1
 y.train <- (y.train + 1) / 2
 y.test <- (y.test + 1) / 2
@@ -24,20 +21,7 @@ y.test <- (y.test + 1) / 2
 get_score <- function (y_test, y_pred) {
   return(sum(y_test == y_pred) / length(y_test) * 100)
 }
-```
 
-```{r}
-# retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est strictement positif pour un lambda donné
-get_selected_vars <- function (lambda, sample_size_coef) {
-  full_size <- nrow(X.train)
-  fold_idx <- sample(full_size, full_size * sample_size_coef)
-  X_fold <- X.train[fold_idx, ]
-  y_fold <- y.train[fold_idx]
-  return(glmnet(X_fold, y_fold, family = "binomial", lambda = lambda)$beta > 0)
-}
-```
-
-```{r}
 # entraine un modèle de régression logistique non pénalisé (avec un jeu restreint aux variables stables)
 # estime les classes
 # retourne le taux d'agrément
@@ -50,15 +34,28 @@ evaluate_stable_vars <- function (X_train, y_train, X_test, y_test, vars_idx) {
 ```
 
 ```{r}
-# retourne un data.frame donnant le score et la taille du support selon le seuil de stabilité
-run_stability_selection_model <- function (X_train, y_train, X_test, y_test, lambda, sample_size_coef = .5) {
+# retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est strictement positif pour un lambda donné
+get_selected_vars <- function (X_train, y_train, lambda, sample_size_coef) {
+  full_size <- nrow(X_train)
+  fold_idx <- sample(full_size, full_size * sample_size_coef)
+  X_fold <- X_train[fold_idx, ]
+  y_fold <- y_train[fold_idx]
+  return(glmnet(X_fold, y_fold, family = "binomial", lambda = lambda)$beta > 0)
+}
+
+# retourne un chemin de stabilité
+get_stability_path <- function (X_train, y_train, lambda, sample_size_coef = .5) {
   n_paths <- 100
   # liste de n_models matrices de 0 / 1 indiquant la sélection ou non d'une variable pour un lambda donné
-  vars_select <- sapply(1:n_paths, function (i) get_selected_vars(lambda, sample_size_coef))
+  vars_select <- sapply(1:n_paths, function (i) get_selected_vars(X_train, y_train, lambda, sample_size_coef))
   # passage à une matrice de fréquences des variables (pour des lambda différents)
-  vars_freq <- reduce(vars_select, `+`) / n_paths
+  return(reduce(vars_select, `+`) / n_paths)
+}
+
+# retourne un data.frame donnant le score et la taille du support selon le seuil de stabilité
+run_stability_selection_model <- function (X_train, y_train, X_test, y_test, stability_path) {
   # et enfin on garde la fréquence max de chaque variable
-  vars_max_freq <- apply(vars_freq, 1, max)
+  vars_max_freq <- apply(stability_path, 1, max)
   stability_indices <- seq(.6, 1, by = .05)
   names(stability_indices) <- stability_indices
   # index des variables stables pour différents seuils
@@ -86,15 +83,14 @@ cv_run_stability_selection_model <- function (X_train, y_train, lambda, n_folds 
     fold_X_test <- X_train[whichs, ]
     fold_y_test <- y_train[whichs]
     # appel à la fonction générique
+    stability_path <- get_stability_path(fold_X_train, fold_y_train, lambda) # ? sample_size_coef
     return(run_stability_selection_model(fold_X_train, fold_y_train,
                                          fold_X_test, fold_y_test,
-                                         lambda))
+                                         stability_path))
   })
   return(do.call(rbind, cv_stability_indices_summary))
 }
-```
 
-```{r}
 # à partir d'un data.frame contenant les résultats de la cross-validation retourne les indices optimaux
 cv_get_optimal_stability_indices <- function (stability_indices_summary) {
   stability_indices <- unique(stability_indices_summary$indice)
@@ -121,13 +117,18 @@ lambda <- lasso_mod$lambda
 ```
 
 ```{r}
-# stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, lambda)
-load(stab_sel_summary)
+# stability_path <- get_stability_path(X.train, y.train, lambda)
+# save(stability_path, file = "data/stability_path.Rdata")
+load("data/stability_path.Rdata")
+# stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, stability_path)
+# save(stab_sel_summary, file = "data/stab_sel_summary.Rdata")
+load("data/stab_sel_summary.Rdata")
 ```
 
 ```{r}
 # cv_stab_sel_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
-load(cv_stab_sel_summary)
+# save(cv_stab_sel_summary, file = "data/cv_stab_sel_summary.Rdata")
+load("data/cv_stab_sel_summary.Rdata")
 ```
 
 ```{r}
