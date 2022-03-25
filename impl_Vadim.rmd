@@ -4,6 +4,7 @@ output: html_notebook
 ---
 
 ```{r}
+library(ggplot2)
 library(glmnet)
 library(purrr)
 ```
@@ -120,11 +121,13 @@ lambda <- lasso_mod$lambda
 ```
 
 ```{r}
-stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, lambda)
+# stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, lambda)
+load(stab_sel_summary)
 ```
 
 ```{r}
-cv_stab_sel_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
+# cv_stab_sel_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
+load(cv_stab_sel_summary)
 ```
 
 ```{r}
@@ -135,4 +138,16 @@ stab_sel_min_score <- evaluate_stable_vars(X.train, y.train, X.test, y.test, var
 stab_sel_min_nz <- length(vars_idx_min)
 stab_sel_1sd_score <- evaluate_stable_vars(X.train, y.train, X.test, y.test, vars_idx_1sd)
 stab_sel_1sd_nz <- length(vars_idx_1sd)
+```
+
+```{r}
+mods_res <- stab_sel_summary[, c("score", "nzero")]
+mods_res$model <- paste0("StabSel-", round(stab_sel_summary$indice, digits = 2))
+mods_res[nrow(mods_res) + 1, ] <- c(stab_sel_1sd_score, stab_sel_1sd_nz, "StabSel-1sd")
+mods_res[nrow(mods_res) + 1, ] <- c(stab_sel_min_score, stab_sel_min_nz, "StabSel-min")
+mods_res[nrow(mods_res) + 1, ] <- c(lasso_score, lasso_nz, "Lasso")
+mods_res$nzero <- as.integer(mods_res$nzero)
+ggplot(data = mods_res) +
+        geom_jitter(aes(x = nzero, y = score, colour = model), width = .1, height = .1) +
+        theme_bw()
 ```
