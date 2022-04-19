@@ -11,47 +11,62 @@ library(pROC)
 library(purrr)
 ```
 
-```{r}
+```{r, dataset}
 load("data/TB.Rdata")
 # transformation de la réponse en 0 / 1
 y.train <- (y.train + 1) / 2
 y.test <- (y.test + 1) / 2
 ```
 
-```{r}
+```{r, eval_func}
+# retourne un modèle de regression logistique entrainé
+get_glm <- function(X_train, y_train, vars_idx) {
+  return(glm("y ~ .", data = cbind(as.data.frame(as.matrix(X_train[, vars_idx])), data.frame(y = y_train)),
+             family = "binomial"))
+}
+# retourne les probabilités des classes
+get_predictions <- function(X_train, y_train, X_test, vars_idx) {
+  mod <- get_glm(X_train, y_train, vars_idx)
+  return(predict(mod, newdata = as.data.frame(as.matrix(X_test[, vars_idx])), type = "response"))
+}
+
 # retourne le taux d'agrément
 get_score <- function(y_test, y_pred) {
   return(sum(y_test == y_pred) / length(y_test) * 100)
 }
 
-get_predictions <- function(X_train, y_train, X_test, vars_idx) {
-  mod <- glm("y ~ .", data = cbind(as.data.frame(as.matrix(X_train[, vars_idx])), data.frame(y = y_train)),
-             family = "binomial")
-  return(predict(mod, newdata = as.data.frame(as.matrix(X_test[, vars_idx])), type = "response"))
-}
-
 # entraine un modèle de régression logistique non pénalisé (avec un jeu restreint aux variables stables)
 # estime les classes
 # retourne le taux d'agrément
-evaluate_stable_vars <- function(X_train, y_train, X_test, y_test, vars_idx) {
+get_performance <- function(X_train, y_train, X_test, y_test, vars_idx) {
   y_pred <- as.integer(get_predictions(X_train, y_train, X_test, vars_idx) > .5)
   return(get_score(y_test, y_pred))
 }
 
+# entraine un modèle de régression logistique non pénalisé (avec un jeu restreint aux variables stables)
+# retourne l'amplitude des coefficients
+get_coef_range <- function(X_train, y_train, vars_idx) {
+  mod <- get_glm(X_train, y_train, vars_idx)
+  return(max(mod$coefficients, na.rm = T) - min(mod$coefficients, na.rm = T))
+}
+
+# entraine un modèle de régression logistique non pénalisé (avec un jeu restreint aux variables stables)
+# estime les probabilités des classes
+# retourne la courbe ROC
 get_roc <- function(X_train, y_train, X_test, y_test, vars_idx) {
   y_pred <- get_predictions(X_train, y_train, X_test, vars_idx)
   return(roc(y_test, y_pred))
 }
 ```
 
-```{r}
+```{r, stab_sel_func}
 # retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est strictement positif pour un lambda donné
 get_selected_vars <- function(X_train, y_train, lambda, sample_size_coef) {
   full_size <- nrow(X_train)
   fold_idx <- sample(full_size, full_size * sample_size_coef)
   X_fold <- X_train[fold_idx, ]
   y_fold <- y_train[fold_idx]
-  return(glmnet(X_fold, y_fold, family = "binomial", lambda = lambda)$beta > 0)
+  return(glmnet(X_fold, y_fold, family = "binomial", lambda = lambda)$beta != 0)
 }
 
 # retourne un chemin de stabilité
@@ -72,15 +87,16 @@ run_stability_selection_model <- function(X_train, y_train, X_test, y_test, stab
   # index des variables stables pour différents seuils
   vars_idx <- sapply(stability_indices, function(s_idx) which(vars_max_freq >= s_idx))
   # scores des régressions logistiques sans pénalisation associés aux différents seuils
-  scores <- sapply(vars_idx, function(v_idx)
-          evaluate_stable_vars(X_train, y_train, X_test, y_test, v_idx))
+  scores <- sapply(vars_idx, function(v_idx) get_performance(X_train, y_train, X_test, y_test, v_idx))
   # nombre de variables sélectionnées pour les différentes seuils
   nzero <- sapply(vars_idx, length)
-  return(data.frame(indice = stability_indices, score = scores, nzero = nzero, vars.idx = I(vars_idx)))
+  # amplitude des coefficients
+  ranges <- sapply(vars_idx, function(v_idx) get_coef_range(X_train, y_train, v_idx))
+  return(data.frame(indice = stability_indices, score = scores, nzero = nzero, range = ranges, vars.idx = I(vars_idx)))
 }
 ```
 
-```{r}
+```{r, cv_func}
 # retourne un data.frame donnant le score et la taille du support selon le seuil de stabilité pour n_folds modèles
 cv_run_stability_selection_model <- function(X_train, y_train, lambda, n_folds = 10) {
   # assignation de chaque observation à un fold
@@ -119,58 +135,118 @@ cv_get_optimal_stability_indices <- function(stability_indices_summary) {
 }
 ```
 
-```{r}
+```{r, lasso, eval = FALSE}
 lasso_mod <- cv.glmnet(X.train, y.train, type.measure = "class", family = "binomial")
+lasso_lambda <- lasso_mod$lambda
 lasso_pred <- predict(lasso_mod, newx = X.test, type = "class", s = lasso_mod$lambda.1se)[, 1]
-lasso_score <- get_score(y.test, lasso_pred)
-lasso_nz <- lasso_mod$nzero[[which(lasso_mod$lambda == lasso_mod$lambda.1se)]]
-lambda <- lasso_mod$lambda
+lasso_vars_idx <- which(lasso_mod$glmnet.fit$beta[, which(lasso_mod$lambda == lasso_mod$lambda.1se)] != 0)
+lasso_summary <- data.frame(indice = NA,
+                            score = get_score(y.test, lasso_pred),
+                            nzero = lasso_mod$nzero[[which(lasso_mod$lambda == lasso_mod$lambda.1se)]],
+                            range = get_coef_range(X.train, y.train, lasso_vars_idx),
+                            vars.idx = I(list(lasso_vars_idx)))
+rownames(lasso_summary) <- "Lasso"
 ```
 
-```{r}
-# stability_path <- get_stability_path(X.train, y.train, lambda)
-# save(stability_path, file = "data/stability_path.Rdata")
-load("data/stability_path.Rdata")
-# stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, stability_path)
-# save(stab_sel_summary, file = "data/stab_sel_summary.Rdata")
-load("data/stab_sel_summary.Rdata")
+```{r, stab_sel, eval = FALSE}
+stability_path <- get_stability_path(X.train, y.train, lasso_lambda)
+stab_sel_summary <- run_stability_selection_model(X.train, y.train, X.test, y.test, stability_path)
+rownames(stab_sel_summary) <- paste0("StabSel-", round(stab_sel_summary$indice, digits = 2))
 ```
 
-```{r}
-# cv_stab_sel_summary <- cv_run_stability_selection_model(X.train, y.train, lambda)
-# save(cv_stab_sel_summary, file = "data/cv_stab_sel_summary.Rdata")
-load("data/cv_stab_sel_summary.Rdata")
-```
-
-```{r}
+```{r, cv_stab_sel, eval = FALSE}
+cv_stab_sel_summary <- cv_run_stability_selection_model(X.train, y.train, lasso_lambda)
 best_indices <- cv_get_optimal_stability_indices(cv_stab_sel_summary)
-vars_idx_min <- stab_sel_summary$vars.idx[[which(stab_sel_summary$indice == best_indices$indice.min)]]
-vars_idx_1sd <- stab_sel_summary$vars.idx[[which(stab_sel_summary$indice == best_indices$indice.1sd)]]
-stab_sel_min_score <- evaluate_stable_vars(X.train, y.train, X.test, y.test, vars_idx_min)
-stab_sel_min_nz <- length(vars_idx_min)
-stab_sel_1sd_score <- evaluate_stable_vars(X.train, y.train, X.test, y.test, vars_idx_1sd)
-stab_sel_1sd_nz <- length(vars_idx_1sd)
+indice_min_idx <- which(stab_sel_summary$indice == best_indices$indice.min)
+indice_1sd_idx <- which(stab_sel_summary$indice == best_indices$indice.1sd)
+rownames(stab_sel_summary)[[indice_min_idx]] <- paste0(rownames(stab_sel_summary)[[indice_min_idx]], " (cv_min)")
+rownames(stab_sel_summary)[[indice_1sd_idx]] <- paste0(rownames(stab_sel_summary)[[indice_1sd_idx]], " (cv_1sd)")
 ```
 
-```{r}
-mods_res <- stab_sel_summary[, c("score", "nzero")]
-mods_res$model <- paste0("StabSel-", round(stab_sel_summary$indice, digits = 2))
-mods_res[nrow(mods_res) + 1, ] <- c(stab_sel_1sd_score, stab_sel_1sd_nz, "StabSel-1sd")
-mods_res[nrow(mods_res) + 1, ] <- c(stab_sel_min_score, stab_sel_min_nz, "StabSel-min")
-mods_res[nrow(mods_res) + 1, ] <- c(lasso_score, lasso_nz, "Lasso")
-mods_res$nzero <- as.integer(mods_res$nzero)
-ggplot(data = mods_res) +
-        geom_jitter(aes(x = nzero, y = score, colour = model, shape = model), width = .15, height = .15) +
-        scale_shape_manual(values = 1:nrow(mods_res)) +
+```{r, paths, eval = FALSE}
+activated_vars <- which(lasso_mod$glmnet.fit$beta != 0, arr.ind = TRUE)
+reg_path <- data.frame(cbind(lasso_mod$glmnet.fit$beta[activated_vars], activated_vars))
+colnames(reg_path) <- c("beta", "var", "lambda")
+reg_path$lambda <- as.integer(reg_path$lambda)
+
+stable_vars <- which(stability_path != 0, arr.ind = TRUE)
+stab_path <- data.frame(cbind(stability_path[stable_vars], stable_vars))
+colnames(stab_path) <- c("freq", "var", "lambda")
+stab_path$lambda <- as.integer(stab_path$lambda)
+
+max_freq <- by(stab_path, list(stab_path$var), function(df) data.frame(var = unique(df$var), max_freq = max(df$freq)))
+max_freq <- as.data.frame(do.call(rbind, max_freq))
+max_freq$var <- as.factor(max_freq$var)
+max_freq$max_freq <- as.numeric(max_freq$max_freq)
+reg_path <- merge(reg_path, max_freq, by = "var")
+stab_path <- merge(stab_path, max_freq, by = "var")
+
+# cast en factor avec un ordre de levels precis pour que les chemins des graphs soient bien superposes
+reg_path$var <- factor(reg_path$var, levels = unique(reg_path[order(reg_path$max_freq), "var"]))
+stab_path$var <- factor(stab_path$var, levels = unique(stab_path[order(stab_path$max_freq), "var"]))
+```
+
+```{r, save, eval = FALSE}
+save(lasso_summary, stab_sel_summary, file = "data/summaries.Rdata")
+save(reg_path, stab_path, file = "data/paths.Rdata")
+```
+
+```{r, load}
+load("data/summaries.Rdata")
+load("data/paths.Rdata")
+mods_summary <- rbind(lasso_summary, stab_sel_summary)
+mods_summary$nzero <- as.integer(mods_summary$nzero)
+```
+
+```{r, nzero_score}
+ggplot(data = mods_summary) +
+        geom_point(aes(x = nzero, y = score, colour = rownames(mods_summary), shape = rownames(mods_summary))) +
+        scale_shape_manual(name = "Modèle", values = 1:nrow(mods_summary)) +
+        scale_color_discrete(name = "Modèle") +
+        labs(x = "Taille du support", y = "Taux d'agrément") +
         theme_bw()
 ```
 
-```{r}
-stab_sel_1sd_roc <- get_roc(X.train, y.train, X.test, y.test, vars_idx_1sd)
-stab_sel_min_roc <- get_roc(X.train, y.train, X.test, y.test, vars_idx_min)
-stab_sel_cv_roc <- list(sd = stab_sel_1sd_roc, min = stab_sel_min_roc)
-ggroc(stab_sel_cv_roc) +
-        ggtitle(paste0("Courbes ROC - sd : AUC = ", round(stab_sel_cv_roc$sd$auc, digits = 2),
-                       " - min : AUC = ", round(stab_sel_cv_roc$min$auc, digits = 2))) +
+```{r, range_score}
+ggplot(data = mods_summary) +
+        geom_point(aes(x = range, y = score, colour = rownames(mods_summary), shape = rownames(mods_summary))) +
+        scale_shape_manual(name = "Modèle", values = 1:nrow(mods_summary)) +
+        scale_color_discrete(name = "Modèle") +
+        labs(x = "Amplitude des coefficients", y = "Taux d'agrément") +
         theme_bw()
+```
+
+```{r, roc}
+mods_roc <- lapply(mods_summary$vars.idx, function(vars) get_roc(X.train, y.train, X.test, y.test, vars))
+names(mods_roc) <- rownames(mods_summary)
+ggroc(mods_roc) +
+        labs(x = "Spécificité", y = "Sensibilité") +
+        scale_color_discrete(name = "Modèle") +
+        theme_bw()
+```
+
+```{r, auc}
+mods_auc <- data.frame(auc = sapply(mods_roc, function(mod_roc) mod_roc$auc), model = names(mods_roc))
+ggplot(data = mods_auc) +
+        geom_bar(aes(x = model, y = auc, fill = model), stat = "identity") +
+        scale_fill_discrete(name = "Modèle") +
+        labs(x = "Modèle", y = "AUC") +
+        theme_bw() +
+        theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r, fig_paths}
+stab_path$color <- sapply(stab_path$max_freq, function(f) min(f, .8)) # meme couleur de .8 a 1
+fig_stab <- ggplot(data = stab_path) +
+        geom_line(aes(x = lambda, y = freq, group = var, color = color)) +
+        scale_color_gradient(low = "yellow", high = "red", limits = c(.6, .8), guide = "none") +
+        labs(title = "Chemin de stabilité", x = "Lambda index", y = "Fréquence de sélection")
+
+reg_path <- reg_path[order(reg_path$max_freq), ]
+reg_path$color <- sapply(reg_path$max_freq, function(f) min(f, .8))
+fig_reg <- ggplot(data = reg_path) +
+        geom_line(aes(x = lambda, y = beta, group = var, color = color)) +
+        scale_color_gradient(low = "yellow", high = "red", limits = c(0.6, .8), guide = "none") +
+        labs(title = "Chemin de régularisation", x = "Lambda index", y = "Coefficient")
+ggarrange(fig_stab, fig_reg, ncol = 2)
 ```
