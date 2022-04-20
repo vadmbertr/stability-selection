@@ -49,6 +49,14 @@ get_coef_range <- function(X_train, y_train, vars_idx) {
   mod <- get_glm(X_train, y_train, vars_idx)
   return(max(mod$coefficients, na.rm = T) - min(mod$coefficients, na.rm = T))
 }
+get_coef_IQR <- function(X_train, y_train, vars_idx) {
+  mod <- get_glm(X_train, y_train, vars_idx)
+  return(quantile(mod$coefficients, .75, na.rm = T) - quantile(mod$coefficients, .25, na.rm = T))
+}
+get_coef_IDR <- function(X_train, y_train, vars_idx) {
+  mod <- get_glm(X_train, y_train, vars_idx)
+  return(quantile(mod$coefficients, .9, na.rm = T) - min(mod$coefficients, .1, na.rm = T))
+}
 
 # entraine un modèle de régression logistique non pénalisé (avec un jeu restreint aux variables stables)
 # estime les probabilités des classes
@@ -60,7 +68,7 @@ get_roc <- function(X_train, y_train, X_test, y_test, vars_idx) {
 ```
 
 ```{r, stab_sel_func}
-# retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est strictement positif pour un lambda donné
+# retourne une matrice de 0 / 1 indiquant si le coefficient d'une variable est non nul pour un lambda donné
 get_selected_vars <- function(X_train, y_train, lambda, sample_size_coef) {
   full_size <- nrow(X_train)
   fold_idx <- sample(full_size, full_size * sample_size_coef)
@@ -91,7 +99,7 @@ run_stability_selection_model <- function(X_train, y_train, X_test, y_test, stab
   # nombre de variables sélectionnées pour les différentes seuils
   nzero <- sapply(vars_idx, length)
   # amplitude des coefficients
-  ranges <- sapply(vars_idx, function(v_idx) get_coef_range(X_train, y_train, v_idx))
+  ranges <- sapply(vars_idx, function(v_idx) get_coef_IQR(X_train, y_train, v_idx))
   return(data.frame(indice = stability_indices, score = scores, nzero = nzero, range = ranges, vars.idx = I(vars_idx)))
 }
 ```
@@ -212,7 +220,7 @@ ggplot(data = mods_summary) +
         geom_point(aes(x = range, y = score, colour = rownames(mods_summary), shape = rownames(mods_summary))) +
         scale_shape_manual(name = "Modèle", values = 1:nrow(mods_summary)) +
         scale_color_discrete(name = "Modèle") +
-        labs(x = "Amplitude des coefficients", y = "Taux d'agrément") +
+        labs(x = "Amplitude des coefficients (IQR)", y = "Taux d'agrément") +
         theme_bw()
 ```
 
@@ -240,7 +248,7 @@ stab_path$color <- sapply(stab_path$max_freq, function(f) min(f, .8)) # meme cou
 fig_stab <- ggplot(data = stab_path) +
         geom_line(aes(x = lambda, y = freq, group = var, color = color)) +
         scale_color_gradient(low = "yellow", high = "red", limits = c(.6, .8), guide = "none") +
-        labs(title = "Chemin de stabilité", x = "Lambda index", y = "Fréquence de sélection")
+        labs(title = "Chemin de stabilité", x = "Lambda index", y = "Probabilité de sélection")
 
 reg_path <- reg_path[order(reg_path$max_freq), ]
 reg_path$color <- sapply(reg_path$max_freq, function(f) min(f, .8))
