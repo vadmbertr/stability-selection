@@ -172,24 +172,30 @@ rownames(stab_sel_summary)[[indice_1sd_idx]] <- paste0(rownames(stab_sel_summary
 ```
 
 ```{r, paths, eval = FALSE}
+# Construction des data.frames des chemins
+
+# De régularisation
 activated_vars <- which(lasso_mod$glmnet.fit$beta != 0, arr.ind = TRUE)
 reg_path <- data.frame(cbind(lasso_mod$glmnet.fit$beta[activated_vars], activated_vars))
 colnames(reg_path) <- c("beta", "var", "lambda")
 reg_path$lambda <- as.integer(reg_path$lambda)
 
+# De sélection
 stable_vars <- which(stability_path != 0, arr.ind = TRUE)
 stab_path <- data.frame(cbind(stability_path[stable_vars], stable_vars))
 colnames(stab_path) <- c("freq", "var", "lambda")
 stab_path$lambda <- as.integer(stab_path$lambda)
 
+# Jointure avec les fréquences/probabilités de sélection maximales pour la coloration
 max_freq <- by(stab_path, list(stab_path$var), function(df) data.frame(var = unique(df$var), max_freq = max(df$freq)))
 max_freq <- as.data.frame(do.call(rbind, max_freq))
 max_freq$var <- as.factor(max_freq$var)
 max_freq$max_freq <- as.numeric(max_freq$max_freq)
-reg_path <- merge(reg_path, max_freq, by = "var")
+reg_path <- merge(reg_path, max_freq, by = "var", all.x = TRUE)
+reg_path[is.na(reg_path$max_freq), "max_freq"] <- 0
 stab_path <- merge(stab_path, max_freq, by = "var")
 
-# cast en factor avec un ordre de levels precis pour que les chemins des graphs soient bien superposes
+# cast en factor avec un ordre de levels precis pour que les chemins des variables les plus stables apparaissent biens
 reg_path$var <- factor(reg_path$var, levels = unique(reg_path[order(reg_path$max_freq), "var"]))
 stab_path$var <- factor(stab_path$var, levels = unique(stab_path[order(stab_path$max_freq), "var"]))
 ```
@@ -213,6 +219,12 @@ ggplot(data = mods_summary) +
         scale_color_discrete(name = "Modèle") +
         labs(x = "Taille du support", y = "Taux d'agrément") +
         theme_bw()
+# interprétation
+# Performe nettement mieux que Lasso
+# Peu de variation dans les résultats de StabSel, mis à part .95 et 1 => le papier de 2010 préconise un seuil de
+# stabilité entre .6 et .9 : consistant
+#   => très intéressant car permet de s'affranchir du choix de lambda du Lasso qui lui à un impact fort (voir chemin de
+#       régularisation)
 ```
 
 ```{r, range_score}
@@ -222,6 +234,8 @@ ggplot(data = mods_summary) +
         scale_color_discrete(name = "Modèle") +
         labs(x = "Amplitude des coefficients (IQR)", y = "Taux d'agrément") +
         theme_bw()
+# interprétation :
+# amplitude forte => coefficients extrêmes pour compenser les variables instables (bruits) introduites par Lasso ?
 ```
 
 ```{r, roc}
@@ -257,4 +271,6 @@ fig_reg <- ggplot(data = reg_path) +
         scale_color_gradient(low = "yellow", high = "red", limits = c(0.6, .8), guide = "none") +
         labs(title = "Chemin de régularisation", x = "Lambda index", y = "Coefficient")
 ggarrange(fig_stab, fig_reg, ncol = 2)
+
+# de nombreuses variables stables n'apparaisent pas de le chemin de régularisation
 ```
