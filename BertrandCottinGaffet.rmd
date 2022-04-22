@@ -1,5 +1,5 @@
 ---
-title: "Projet n°8 : stability selection"
+title: "Stability selection pour la prédiction de la résistance d'une souche bactérienne à un antibiotique"
 subtitle: "M1 parcours SSD -- UE Apprentissage Statistique I"
 
 date: "29/04/2022"
@@ -8,16 +8,107 @@ author:
   \begin{tabular}{ccc}
   Vadim \textsc{Bertrand} & Lola \textsc{Cottin} & Marie \textsc{Gaffet}
   \end{tabular}
-  
+
+output:
+  pdf_document:
+    number_sections: true
+    citation_package: biblatex
+
+bibliography: stabsel.bib
+
+urlcolor: blue
+
 header-includes:
    - \usepackage{caption}
    - \usepackage{longtable}
    - \usepackage{booktabs}
    - \usepackage{subcaption}
-   
-output:
-  pdf_document:
-    number_sections: true
-urlcolor: blue
+   - \usepackage{float}
+   - \usepackage[backend=biber,style=numeric,sorting=none]{biblatex}
+   - \makeatletter\renewcommand*{\fps@figure}{H}\makeatother
 ---
 
+```{r setup, include = F}
+knitr::opts_chunk$set(echo = F, message = F, warning = F, results = F)
+knitr::opts_chunk$set(fig.width = 6, fig.height = 3, fig.align = "center")
+```
+
+```{r, lib}
+library(ggpubr)
+```
+
+# Introduction
+
+Certaines souches bactériennes présentent une résistance particulière aux antibiotiques développés pour lutter contre elles. \
+Cette résistance peut être modélisée par une régression logistique ayant pour variables explicatives l'activation ou non des gènes du génome des souches.
+Seulement, le grand nombre de gènes (plusieurs dizaines de milliers) impose de sélectionner les gènes explicatifs avant d'entrainer le modèle de régression logistique.
+Pour cela des méthodes de régression pénalisant le nombre de variables sélectionnées existent.
+Lasso notamment peut être utilisé, mais quand les variables mises en jeu sont corrélées il présente l'inconvénient d'être instable et de sélectionner plus de variables que nécessaire. \
+Pour palier ce problème, la technique de stability selection \cite{stabsel} peut être intéressante.
+Il s'agit de répéter plusieurs fois l'ajustement d'une régression logistique Lasso basée sur un sous-échantillonnage du jeu de données et d'en déduire la fréquence de sélection des variables par l'ensemble des régressions.
+Les variables dont la fréquence de sélection dépasse un seuil donné sont enfin utilisées pour l'ajustement d'une régression logistique non pénalisée. \
+Nous verrons ici comment implémenter la procédure de stability selection sur R, puis nous commenterons les résultats obtenus selon le seuil de sélection en les comparant à ceux d'une régression logistique Lasso "classique".
+
+# Implémentation de la stability selection
+
+```{r, source}
+source("stabsel_fig.R")
+source("stabsel_func.R")
+source("stabsel_data.R")
+```
+
+L'ensemble du code mise en oeuvre pour l'implémentation et l'application de la stability selection étant présent en annexe, nous ne reviendrons donc que brièvement sur les éléments clés de celles-ci.
+
+# Application à la prédiction de la résistance d'une souche bactérienne à un antibiotique
+
+```{r, load}
+load("data/summaries.Rdata")
+load("data/paths.Rdata")
+mods_summary <- rbind(lasso_summary, stab_sel_summary)
+mods_summary$nzero <- as.integer(mods_summary$nzero)
+```
+
+```{r, fig_chemins, fig.cap = "Chemins de stabilité (à gauche) et de régularisation (à droite)"}
+fig_stab <- get_fig_stab(stab_path)
+fig_reg <- get_fig_reg(reg_path)
+ggarrange(fig_stab, fig_reg, ncol = 2)
+```
+
+```{r, fig_roc_auc, fig.height = 6, fig.cap = "Courbes ROC (en haut) et diagramme à bâtons représentant les AUC (en bas) des différents modèles"}
+mods_roc <- get_rocs(X.train, y.train, X.test, y.test, mods_summary)
+fig_roc <- get_fig_roc(mods_roc)
+fig_auc <- get_fig_auc(mods_roc)
+ggarrange(fig_roc, fig_auc, nrow = 2, common.legend = TRUE, legend = "right")
+```
+
+```{r, fig_score, fig.height = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et taux d'agrément en fonction de l'amplitude des coefficients (en bas) des différents modèles"}
+fig_nz_sco <- get_fig_nz_score(mods_summary)
+fig_amp_sco <- get_fig_amp_score(mods_summary)
+ggarrange(fig_nz_sco, fig_amp_sco, nrow = 2, common.legend = TRUE, legend = "right")
+```
+
+# Conclusion
+
+Blabla
+
+# Annexes
+
+## stabsel_func.R
+
+```{r, code_func, code = readLines("stabsel_func.R", encoding = "UTF-8"), echo = T, eval = F}
+```
+
+## stabsel_data.R
+
+```{r, code_data, code = readLines("stabsel_data.R", encoding = "UTF-8"), echo = T, eval = F}
+```
+
+## stabsel_run.R
+
+```{r, code_run, code = readLines("stabsel_run.R", encoding = "UTF-8"), echo = T, eval = F}
+```
+
+## stabsel_fig.R
+
+```{r, code_run, code = readLines("stabsel_fig.R", encoding = "UTF-8"), echo = T, eval = F}
+```
