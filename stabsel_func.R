@@ -36,20 +36,13 @@ get_performance <- function(X_train, y_train, X_test, y_test, vars_idx) {
 
 # entraine un modèle de régression logistique non pénalisé (avec un jeu
 #   restreint aux variables stables)
-# retourne l'amplitude des coefficients
-get_coef_range <- function(X_train, y_train, vars_idx) {
+# retourne les coefficients (sans l'intercept)
+get_coef <- function(X_train, y_train, vars_idx) {
   mod <- get_glm(X_train, y_train, vars_idx)
-  return(max(mod$coefficients, na.rm = T) - min(mod$coefficients, na.rm = T))
-}
-get_coef_IQR <- function(X_train, y_train, vars_idx) {
-  mod <- get_glm(X_train, y_train, vars_idx)
-  return(quantile(mod$coefficients, .75, na.rm = T) -
-           quantile(mod$coefficients, .25, na.rm = T))
-}
-get_coef_IDR <- function(X_train, y_train, vars_idx) {
-  mod <- get_glm(X_train, y_train, vars_idx)
-  return(quantile(mod$coefficients, .9, na.rm = T) -
-           quantile(mod$coefficients, .1, na.rm = T))
+  coefs <- mod$coefficients
+  coefs <- coefs[setdiff(names(coefs), "(Intercept)")]
+  names(coefs) <- names(vars_idx)
+  return(coefs)
 }
 
 # entraine un modèle de régression logistique non pénalisé (avec un jeu
@@ -121,10 +114,9 @@ run_stability_selection_model <- function(X_train, y_train, X_test, y_test,
   # nombre de variables sélectionnées pour les différentes seuils
   nzero <- sapply(vars_idx, length)
   # amplitude des coefficients
-  ranges <- sapply(vars_idx, function(v_idx) get_coef_IQR(X_train, y_train,
-                                                          v_idx))
+  coefs <- lapply(vars_idx, function(v_idx) get_coef(X_train, y_train, v_idx))
   return(data.frame(indice = stability_indices, score = scores, nzero = nzero,
-                    range = ranges, vars.idx = I(vars_idx)))
+                    coef = I(coefs), vars.idx = I(vars_idx)))
 }
 
 

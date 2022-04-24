@@ -18,8 +18,8 @@ lasso_summary <- data.frame(indice = NA,
                             score = get_score(y.test, lasso_pred),
                             nzero = lasso_mod$nzero[[
                               which(lasso_mod$lambda == lasso_mod$lambda.1se)]],
-                            range = get_coef_IQR(X.train, y.train,
-                                                 lasso_vars_idx),
+                            coef = I(list(get_coef(X.train, y.train,
+                                                   lasso_vars_idx))),
                             vars.idx = I(list(lasso_vars_idx)))
 rownames(lasso_summary) <- "Lasso"
 

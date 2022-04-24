@@ -52,12 +52,29 @@ Nous verrons ici comment implémenter la procédure de stability selection sur R
 # Implémentation de la stability selection
 
 ```{r, source}
-source("stabsel_fig.R")
 source("stabsel_func.R")
 source("stabsel_data.R")
+source("stabsel_fig.R")
 ```
 
-L'ensemble du code mise en oeuvre pour l'implémentation et l'application de la stability selection étant présent en annexe, nous ne reviendrons donc que brièvement sur les éléments clés de celles-ci.
+L'ensemble du code mise en oeuvre pour l'implémentation et l'application de la stability selection est organisé en quatre fichiers :
+
+  * ***stabsel_func.R*** contient les fonctions relatives à la stability selection (ajustement et évaluation) ;
+  * ***stabsel_data.R*** pour importer le jeu de données utilisé ;
+  * ***stabsel_run.R*** entraîne et évalue l'ensemble des modèles, puis sauvegarde un résumé des résultats ;
+  * ***stabsel_fig.R*** définie les fonctions utiles pour l'affichage des résultats.
+
+Le code étant présent et commenté en annexes, nous ne reviendrons donc que brièvement sur les éléments clés :
+
+  * nous nous sommes appuyé sur la librairie [glmnet](https://cran.r-project.org/web/packages/glmnet/index.html) pour ajuster les régressions logistiques Lasso ;
+  * par défaut, les sous-échantillons sélectionnés aléatoirement sont de taille $N/2$ avec $N$ la taille de l'échantillon ;
+  * les modèles Lasso et sous-échantillons utilisés pour construire le chemin de stabilité sont au nombre de 100 ;
+  * le maximum des fréquences, ou probabilités, de sélection selon les valeurs de lambda du chemin de stabilité est utilisé pour sélectionner les variables stables selon le seuil de stabilité souhaité ;
+  * les seuils de stabilité considérés sont : ${0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1}$ ;
+  * nous avons également implémenté la procédure de cross-validation pour ajuster l'hyper-paramètre du seuil de stabilité :
+    * la procédure utilise 10 folds par défaut ;
+    * deux seuils de stabilité optimaux sont retournés : l'un minimisant l'erreur, l'autre minimisant le nombre de variables tel que l'erreur se situe à un écart type du minimum ;
+    * l'erreur utilisée est $100 - t_{agrément}$ avec $t_{agrément}$ le taux d'agrément, ou taux de bonne classification global.
 
 # Application à la prédiction de la résistance d'une souche bactérienne à un antibiotique
 
@@ -81,7 +98,7 @@ fig_auc <- get_fig_auc(mods_roc)
 ggarrange(fig_roc, fig_auc, nrow = 2, common.legend = TRUE, legend = "right")
 ```
 
-```{r, fig_score, fig.height = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et taux d'agrément en fonction de l'amplitude des coefficients (en bas) des différents modèles"}
+```{r, fig_score, fig.height = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et diagramme en bâtons des coefficients pour les différents taux d'agrément (en bas) des différents modèles"}
 fig_nz_sco <- get_fig_nz_score(mods_summary)
 fig_amp_sco <- get_fig_amp_score(mods_summary)
 ggarrange(fig_nz_sco, fig_amp_sco, nrow = 2, common.legend = TRUE, legend = "right")
@@ -93,22 +110,24 @@ Blabla
 
 # Annexes
 
-## stabsel_func.R
+***stabsel_func.R***
 
 ```{r, code_func, code = readLines("stabsel_func.R", encoding = "UTF-8"), echo = T, eval = F}
 ```
 
-## stabsel_data.R
+***stabsel_data.R***
 
 ```{r, code_data, code = readLines("stabsel_data.R", encoding = "UTF-8"), echo = T, eval = F}
 ```
 
-## stabsel_run.R
+***stabsel_run.R***
 
 ```{r, code_run, code = readLines("stabsel_run.R", encoding = "UTF-8"), echo = T, eval = F}
 ```
 
-## stabsel_fig.R
+***stabsel_fig.R***
 
 ```{r, code_run, code = readLines("stabsel_fig.R", encoding = "UTF-8"), echo = T, eval = F}
 ```
+
+# Références

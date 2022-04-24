@@ -7,7 +7,7 @@ library(ggplot2)
 
 ## ---- fig_paths --------------------------------------------------------------
 get_fig_stab <- function(stab_path) {
-  # meme couleur de .8 a 1
+  # meme couleur de .8 à 1
   stab_path$color <- sapply(stab_path$max_freq, function(f) min(f, .8))
   ggplot(data = stab_path) +
     geom_line(aes(x = lambda, y = freq, group = var, color = color)) +
@@ -17,7 +17,7 @@ get_fig_stab <- function(stab_path) {
 }
 
 get_fig_reg <- function(reg_path) {
-  # meme couleur de .8 a 1
+  # meme couleur de .8 à 1
   reg_path$color <- sapply(reg_path$max_freq, function(f) min(f, .8))
   ggplot(data = reg_path) +
     geom_line(aes(x = lambda, y = beta, group = var, color = color)) +
@@ -59,11 +59,19 @@ get_fig_nz_score <- function(mods_summary) {
 }
 
 get_fig_amp_score <- function(mods_summary) {
-  ggplot(data = mods_summary) +
-    geom_point(aes(x = range, y = score, colour = rownames(mods_summary),
-                   shape = rownames(mods_summary))) +
-    scale_shape_manual(name = "Modèle", values = 1:nrow(mods_summary)) +
-    scale_color_discrete(name = "Modèle") +
-    labs(x = "Amplitude des coefficients (IQR)", y = "Taux d'agrément") +
+  df <-  lapply(rownames(mods_summary), function(mod_name) {
+    r <- mods_summary[mod_name, ]
+    f <- data.frame(model = mod_name, score = r$score, coef = r$coef)
+    colnames(f) <- c("model", "score", "coef")
+    rownames(f) <- NULL
+    return(f)
+  })
+  df <- do.call(rbind, df)
+  df$score <- as.ordered(df$score)
+  ggplot(data = df) +
+    geom_boxplot(aes(x = coef, y = score, fill = model),
+                 position = position_dodge(1)) +
+    labs(x = "Coefficients", y = "Taux d'agrément") +
+    scale_x_continuous(limits = c(-25, 25)) +
     theme_bw()
 }
