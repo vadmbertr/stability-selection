@@ -1,3 +1,4 @@
+library(car)
 library(glmnet)
 library(pROC)
 library(purrr)
@@ -13,10 +14,8 @@ get_glm <- function(X_train, y_train, vars_idx) {
 }
 
 # retourne les probabilités des classes
-get_predictions <- function(X_train, y_train, X_test, vars_idx) {
-  mod <- get_glm(X_train, y_train, vars_idx)
-  return(predict(mod,
-                 newdata = as.data.frame(as.matrix(X_test[, vars_idx])),
+get_predictions <- function(model, X_test, vars_idx) {
+  return(predict(model, newdata = as.data.frame(as.matrix(X_test[, vars_idx])),
                  type = "response"))
 }
 
@@ -29,19 +28,17 @@ get_score <- function(y_test, y_pred) {
 #   restreint aux variables stables)
 # estime les classes
 # retourne le taux d'agrément
-get_performance <- function(X_train, y_train, X_test, y_test, vars_idx) {
-  y_pred <- as.integer(get_predictions(X_train, y_train, X_test, vars_idx) > .5)
+get_performance <- function(model, X_test, y_test, vars_idx) {
+  y_pred <- as.integer(get_predictions(model, X_test, vars_idx) > .5)
   return(get_score(y_test, y_pred))
 }
 
 # entraine un modèle de régression logistique non pénalisé (avec un jeu
 #   restreint aux variables stables)
 # retourne les coefficients (sans l'intercept)
-get_coef <- function(X_train, y_train, vars_idx) {
-  mod <- get_glm(X_train, y_train, vars_idx)
-  coefs <- mod$coefficients
+get_coef <- function(model) {
+  coefs <- model$coefficients
   coefs <- coefs[setdiff(names(coefs), "(Intercept)")]
-  names(coefs) <- names(vars_idx)
   return(coefs)
 }
 
@@ -50,7 +47,8 @@ get_coef <- function(X_train, y_train, vars_idx) {
 # estime les probabilités des classes
 # retourne la courbe ROC
 get_roc <- function(X_train, y_train, X_test, y_test, vars_idx) {
-  y_pred <- get_predictions(X_train, y_train, X_test, vars_idx)
+  model <- get_glm(X_train, y_train, vars_idx)
+  y_pred <- get_predictions(model, X_test, vars_idx)
   return(roc(y_test, y_pred))
 }
 get_rocs <- function(X_train, y_train, X_test, y_test, mods_summary) {
@@ -104,17 +102,24 @@ run_stability_selection_model <- function(X_train, y_train, X_test, y_test,
   stability_indices <- seq(.6, 1, by = .05)
   names(stability_indices) <- stability_indices
   # index des variables stables pour différents seuils
-  vars_idx <- sapply(stability_indices,
+  vars_idx <- lapply(stability_indices,
                      function(s_idx) which(vars_max_freq >= s_idx))
+  models <- lapply(vars_idx, 
+                   function(v_idx) get_glm(X_train, y_train, v_idx))
   # scores des régressions logistiques sans pénalisation associés aux
   # différents seuils
-  scores <- sapply(vars_idx,
-                   function(v_idx) get_performance(X_train, y_train, X_test,
-                                                   y_test, v_idx))
-  # nombre de variables sélectionnées pour les différentes seuils
+  scores <- sapply(1:length(vars_idx),
+                   function(i) get_performance(models[[i]], X_test, y_test, 
+                                               vars_idx[[i]]))
+  # coefficients
+  coefs <- lapply(models, function(model) get_coef(model))
+  # NA coefs
+  na_coefs <- lapply(coefs, is.na)
+  # MAJ coefs, vars et nzero
+  vars_idx <- lapply(1:length(vars_idx), 
+                     function(i) vars_idx[[i]][!na_coefs[[i]]])
+  coefs <- lapply(1:length(coefs), function(i) coefs[[i]][!na_coefs[[i]]])
   nzero <- sapply(vars_idx, length)
-  # amplitude des coefficients
-  coefs <- lapply(vars_idx, function(v_idx) get_coef(X_train, y_train, v_idx))
   return(data.frame(indice = stability_indices, score = scores, nzero = nzero,
                     coef = I(coefs), vars.idx = I(vars_idx)))
 }

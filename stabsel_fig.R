@@ -35,17 +35,6 @@ get_fig_roc <- function(mods_roc) {
     theme_bw()
 }
 
-get_fig_auc <- function(mods_roc) {
-  mods_auc <- data.frame(auc = sapply(mods_roc, function(mod_roc) mod_roc$auc),
-                         model = names(mods_roc))
-  ggplot(data = mods_auc) +
-    geom_bar(aes(x = model, y = auc, fill = model), stat = "identity") +
-    scale_fill_discrete(name = "Modèle") +
-    labs(x = "Modèle", y = "AUC") +
-    theme_bw() +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1))
-}
-
 
 ## ---- fig_score --------------------------------------------------------------
 get_fig_nz_score <- function(mods_summary) {
@@ -58,20 +47,44 @@ get_fig_nz_score <- function(mods_summary) {
     theme_bw()
 }
 
-get_fig_amp_score <- function(mods_summary) {
+
+## ---- fig_coef ---------------------------------------------------------------
+get_coef_df <- function(mods_summary, coef_name) {
   df <-  lapply(rownames(mods_summary), function(mod_name) {
     r <- mods_summary[mod_name, ]
-    f <- data.frame(model = mod_name, score = r$score, coef = r$coef)
-    colnames(f) <- c("model", "score", "coef")
+    f <- data.frame(model = mod_name, coef = r[, coef_name])
+    colnames(f) <- c("model", coef_name)
     rownames(f) <- NULL
     return(f)
   })
   df <- do.call(rbind, df)
-  df$score <- as.ordered(df$score)
+  return(df)
+}
+
+get_fig_coef <- function(mods_summary) {
+  df <- get_coef_df(mods_summary, "coef")
   ggplot(data = df) +
-    geom_boxplot(aes(x = coef, y = score, fill = model),
-                 position = position_dodge(1)) +
-    labs(x = "Coefficients", y = "Taux d'agrément") +
-    scale_x_continuous(limits = c(-25, 25)) +
+    geom_boxplot(aes(y = coef, fill = model)) +
+    scale_fill_discrete(name = "Modèle") +
+    scale_x_continuous(breaks = NULL) +
+    labs(y = "Coefficients", x = "Modèle") +
+    theme_bw()
+}
+
+get_fig_signif_coef <- function(X_train, y_train, mods_summary, 
+                                signif_level = 0.001) {
+  signif_coefs <- lapply(mods_summary$vars.idx, function(v_idx) {
+    model <- get_glm(X_train, y_train, v_idx)
+    coefs <- get_coef(model)
+    return(coefs[Anova(model)$`Pr(>Chisq)`<= signif_level])
+  })
+  mods_summary$signif.coef <- signif_coefs
+  
+  df <- get_coef_df(mods_summary, "signif.coef")
+  ggplot(data = df) +
+    geom_boxplot(aes(y = signif.coef, fill = model)) +
+    scale_fill_discrete(name = "Modèle") +
+    scale_x_continuous(breaks = NULL) +
+    labs(y = "Coefficients significatifs", x = "Modèle") +
     theme_bw()
 }

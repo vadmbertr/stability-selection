@@ -30,7 +30,7 @@ header-includes:
 
 ```{r setup, include = F}
 knitr::opts_chunk$set(echo = F, message = F, warning = F, results = F)
-knitr::opts_chunk$set(fig.width = 6, fig.height = 3, fig.align = "center")
+knitr::opts_chunk$set(fig.width = 8, fig.height = 3, fig.align = "center")
 ```
 
 ```{r, lib}
@@ -40,8 +40,8 @@ library(ggpubr)
 # Introduction
 
 Certaines souches bactériennes présentent une résistance particulière aux antibiotiques développés pour lutter contre elles. \
-Cette résistance peut être modélisée par une régression logistique ayant pour variables explicatives l'activation ou non des gènes du génome des souches.
-Seulement, le grand nombre de gènes (plusieurs dizaines de milliers) impose de sélectionner les gènes explicatifs avant d'entrainer le modèle de régression logistique.
+Cette résistance peut être modélisée par une régression logistique ayant pour variables explicatives la présence ou non de motifs génomiques dans le génome des souches.
+Seulement, le grand nombre de motifs (plusieurs dizaines de milliers) impose de sélectionner des variables explicatives avant d'entrainer le modèle de régression logistique.
 Pour cela des méthodes de régression pénalisant le nombre de variables sélectionnées existent.
 Lasso notamment peut être utilisé, mais quand les variables mises en jeu sont corrélées il présente l'inconvénient d'être instable et de sélectionner plus de variables que nécessaire. \
 Pour palier ce problème, la technique de stability selection \cite{stabsel} peut être intéressante.
@@ -71,12 +71,12 @@ Le code étant présent et commenté en annexes, nous ne reviendrons donc que br
   * les modèles Lasso et sous-échantillons utilisés pour construire le chemin de stabilité sont au nombre de 100 ;
   * le maximum des fréquences, ou probabilités, de sélection selon les valeurs de lambda du chemin de stabilité est utilisé pour sélectionner les variables stables selon le seuil de stabilité souhaité ;
   * les seuils de stabilité considérés sont : ${0.6, 0.65, 0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1}$ ;
-  * nous avons également implémenté la procédure de cross-validation pour ajuster l'hyper-paramètre du seuil de stabilité :
+  * nous avons également implémenté la procédure de validation croisée pour ajuster l'hyper-paramètre du seuil de stabilité :
     * la procédure utilise 10 folds par défaut ;
     * deux seuils de stabilité optimaux sont retournés : l'un minimisant l'erreur, l'autre minimisant le nombre de variables tel que l'erreur se situe à un écart type du minimum ;
     * l'erreur utilisée est $100 - t_{agrément}$ avec $t_{agrément}$ le taux d'agrément, ou taux de bonne classification global.
 
-# Application à la prédiction de la résistance d'une souche bactérienne à un antibiotique
+# Prédiction de la résistance d'une souche bactérienne à un antibiotique
 
 ```{r, load}
 load("data/summaries.Rdata")
@@ -85,24 +85,64 @@ mods_summary <- rbind(lasso_summary, stab_sel_summary)
 mods_summary$nzero <- as.integer(mods_summary$nzero)
 ```
 
+Le jeu de donnée d'apprentissage que nous avons utilisé permet d'associer la résistance à la _streptomycine_ de 966 souches bactériennes de l'espèce _Mycobacterium tuberculosis_ à la présence de 53677 motifs génomiques. 
+Nous avons ensuite utilisé un jeu de test correspondant de 200 souches bactériennes. \
+Les jeux de données ne présentant pas de données manquantes, la seule transformation que nous avons effectué est l'encodage de la résistance à l'antibiotique de 1 pour résistant et -1 pour sensible à 1 pour résistant et 0 pour sensible.
+
+La seconde étape de notre étude consistait à obtenir le chemin de régularisation et les hyper-paramètres $\lambda$ d'un modèle de régression logistique Lasso, puis le chemin de stabilité pour ces mêmes $\lambda$ du modèle de stability selection.
+Nous avons représenté ces chemins sur la ___Figure 1___, en colorant chacune des variables selon le maximum pris par leur probabilité de sélection en fonction de $\lambda$. 
+
 ```{r, fig_chemins, fig.cap = "Chemins de stabilité (à gauche) et de régularisation (à droite)"}
 fig_stab <- get_fig_stab(stab_path)
 fig_reg <- get_fig_reg(reg_path)
 ggarrange(fig_stab, fig_reg, ncol = 2)
 ```
 
-```{r, fig_roc_auc, fig.height = 6, fig.cap = "Courbes ROC (en haut) et diagramme à bâtons représentant les AUC (en bas) des différents modèles"}
+Tout d'abord nous pouvons observer que pour les $\lambda$ d'index 25 à 100, la probabilité de sélection des variables les plus "importantes" varie peu.
+Cette propriété mise en avant par Bühlmann et Meinshausen dans leur article introduisant la stability selection conforte le choix du maximum des probabilités de sélection des variables comme statistique de sélection des variables selon le seuil de stabilité souhaité et permet de contourner la question parfois difficile du choix de l'hyper-paramètre $\lambda$ dans l'approche Lasso classique. \
+Nous pouvons également remarquer que lorsque l'index de l'hyper-paramètre $\lambda$ est supérieur à 35, de nombreuses variables instables sont introduites dans le modèle Lasso classique, ce qui augmente inutilement la dimension de son support ; à l'inverse quand $\lambda$ est plus grand (pour des index inférieur à 35), la sélection des variables devient trop drastique et élimine des variables stables.
+
+Nous avons ensuite souhaité observer si cette sélection de variables plus stable se traduit par l'ajustement de modèles de régression logistique plus performants.
+Pour cela nous avons calculé le taux bonne de classification de dix modèles : le Lasso classique et neuf modèles de stability selection à des seuils de stabilité différents.
+Etant donné que le nombre de variables mises en jeu dans les modèles est un facteur important, en particulier pour expliquer la résistance aux antibiotiques et pas uniquement la prédire, nous avons illustré sur la ___Figure 2___ la performance de chacun des modèles en fonction de la taille de leur support.
+
+```{r, fig_perf, fig.height = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et courbes ROC (en bas) des différents modèles"}
+fig_nz_sco <- get_fig_nz_score(mods_summary) +
+  scale_x_continuous(breaks = c(seq(0, 25, 5), seq(50, 100, 25)),
+                     labels = c(0, rep("", 4), seq(25, 100, 25))) +
+  scale_y_continuous(breaks = c(seq(73, 89, 1)),
+                     labels = c(rep("", 2), 75, rep("", 4), 80, rep("", 4), 85, 
+                                rep("", 4)))
 mods_roc <- get_rocs(X.train, y.train, X.test, y.test, mods_summary)
 fig_roc <- get_fig_roc(mods_roc)
-fig_auc <- get_fig_auc(mods_roc)
-ggarrange(fig_roc, fig_auc, nrow = 2, common.legend = TRUE, legend = "right")
+ggarrange(fig_nz_sco, fig_roc, nrow = 2, common.legend = TRUE, legend = "right")
 ```
 
-```{r, fig_score, fig.height = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et diagramme en bâtons des coefficients pour les différents taux d'agrément (en bas) des différents modèles"}
-fig_nz_sco <- get_fig_nz_score(mods_summary)
-fig_amp_sco <- get_fig_amp_score(mods_summary)
-ggarrange(fig_nz_sco, fig_amp_sco, nrow = 2, common.legend = TRUE, legend = "right")
+Il est immédiatement visible que le taux d'agrément de sept des modèles de stability selection est comparable à celui du Lasso (et meilleur pour quatre d'entre eux), tout en divisant par cinq voir dix le nombre de variables utilisées. \
+Comme énoncé par Bühlmann et Meinshausen, les résultats obtenus en terme de performance ou de taille du support sont proches pour des seuils de stabilité compris entre $0.6$ et $0.9$. Au delà $0.9$, les performances semblent se dégrader fortement en l'absence de variables visiblement importantes. \
+La similitude des résultats pour un seuil de stabilité cohérent et la facilité via ce genre de représentation à choisir ce seuil rendent l'utilisation de la validation croisée peu pertinente, d'autant que celle-ci est très coûteuse.
+Par ailleurs, les sous-échantillonnages impliqués par l'approche de stability selection et la construction des probabilités de sélection jouent déjà un rôle similaire à celui de la validation croisée. \
+S'attarder sur les courbes ROC des modèles peut également être intéressant pour observer leur différence avec un classifieur aléatoire.
+Le constat est semblable à celui fait via le taux d'agrément : les modèles de stability selection pour des seuils de stabilité dans l'intervalle $[0.6 ,0.9]$ sont les plus proches du classifieur parfait.
+
+## Discussion sur ces bons résultats
+
+Pour conclure cette étude nous avons tenté de comprendre pourquoi la stability selection semble bien adaptée à la problèmatique de la résistance aux antibiotiques. \
+Nous nous sommes donc intéressés aux coefficients des différentes régression logistiques évoquées précédemment.
+Pour rappel, dans le cadre de la régression logistique avec des prédicteurs binaires, les coefficients des modèles indiquent la variation du logarithme de la probabilité d'avoir l'évènement prédit (ici la résistance à l'antibiotique) quand le prédicteur passe de $FAUX$ à $VRAI$ (ici de motif génomique absent à présent).
+
+La ___Figure 3___ permet de voir la répartition des coefficients des différents modèles et de se concentrer sur les coefficients fortement significatifs (au seuil 0.001).
+
+```{r, fig_coef, fig.cap = "Boîtes à moustaches des coefficients des différents modèles"}
+fig_coef <- get_fig_coef(mods_summary) +
+  scale_y_continuous(limits = c(-25, 25))
+fig_signif_coef <- get_fig_signif_coef(X.train, y.train, mods_summary) +
+  scale_y_continuous(limits = c(-25, 25))
+ggarrange(fig_coef, fig_signif_coef, ncol = 2, common.legend = TRUE, 
+          legend = "right")
 ```
+
+Nous constatons que les coefficients significatifs obtenus par stability selection (quelque soit le seuil de stabilité) sont très majoritairement positifs et qu'à l'inverse les coefficients du Lasso classique sont majoritairement négatifs tout en présentant également des coefficients positifs de plus forte valeur. Nous pouvons donc en déduire que les modèles de stability selection retournent les motifs génomiques résistants à l'antibiotique alors que le modèle Lasso classique retourne les motifs génomiques résistants et sensibles à l'antibiotique. La nature de la stability selection semble suggérer que les motifs sensibles à l'antibiotique sont moins généralement retrouvés dans les souches bactériennes, à l'inverse des motifs résistants. Ce qui expliquerait les bons résultats données par celle-ci malgré des supports nettement plus compacts.
 
 # Conclusion
 
