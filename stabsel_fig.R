@@ -2,6 +2,7 @@
 source("stabsel_func.R")
 
 
+library(ggmosaic)
 library(ggplot2)
 
 
@@ -53,11 +54,13 @@ get_coefs_df <- function(mods_summary, signif_level) {
   df <-  lapply(rownames(mods_summary), function(mod_name) {
     r <- mods_summary[mod_name, ]
     coef <- unlist(r$coefs)
+    vars_idx <- unlist(r$vars.idx)
     if (!is.null(signif_level)) {
-      coef <- coef[ unlist(r$coefs.p.val) <= signif_level]
+      idx <- unlist(r$coefs.p.val) <= signif_level
+      coef <- coef[idx]
+      vars_idx <- vars_idx[idx]
     }
-    f <- data.frame(model = mod_name, coef = coef)
-    colnames(f) <- c("model", "coef")
+    f <- data.frame(model = mod_name, coef = coef, vars.idx = vars_idx)
     rownames(f) <- NULL
     return(f)
   })
@@ -80,12 +83,24 @@ get_signif_code <- function(signif_level) {
   return(signif_codes[[as.character(signif_level)]])
 }
 
-get_fig_signif_coefs <- function(mods_summary, signif_level = 0.001) {
+get_fig_signif_coefs <- function(mods_summary, signif_level) {
   get_fig_coefs(mods_summary, signif_level) +
-    labs(y = paste0("Coefficients significatifs ", 
-                    get_signif_code(signif_level)))
+    labs(y = paste0("Coefficients ", get_signif_code(signif_level)))
 }
 
-get_table_signif_coefs <- function(mods_summary) {
-  
+
+get_mosaic <- function(X_train, y_train, var_idx, coef, mod_name) {
+  df <- data.frame(x = as.factor(X_train[, var_idx]), y = as.factor(y_train))
+  levels(df$x) <- c("Absent", "Présent")
+  levels(df$y) <- c("Sensible", "Résistante")
+  ggplot(data = df) +
+    geom_mosaic(aes(x = product(y, x), fill = y)) +
+    labs(title = paste0(mod_name, " : ", 
+                        " motif ", var_idx, 
+                        ", beta = ", round(coef, 2)),
+         x = "Motif génomique", y = "Souche") +
+    scale_fill_discrete(name = "Souche") +
+    theme_bw() +
+    theme(axis.text.y = element_text(angle = 90, hjust = .5, vjust = .5),
+          plot.title = element_text(size = 10))
 }
