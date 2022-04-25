@@ -115,13 +115,19 @@ run_stability_selection_model <- function(X_train, y_train, X_test, y_test,
   coefs <- lapply(models, function(model) get_coef(model))
   # NA coefs
   na_coefs <- lapply(coefs, is.na)
-  # MAJ coefs, vars et nzero
+  # MAJ coefs, vars
   vars_idx <- lapply(1:length(vars_idx), 
                      function(i) vars_idx[[i]][!na_coefs[[i]]])
   coefs <- lapply(1:length(coefs), function(i) coefs[[i]][!na_coefs[[i]]])
+  coefs_p_val <- lapply(vars_idx, function(v_idx) {
+    p_val <- Anova(get_glm(X_train, y_train, v_idx))$`Pr(>Chisq)`
+    names(p_val) <- names(v_idx)
+    return(p_val)
+  })
   nzero <- sapply(vars_idx, length)
   return(data.frame(indice = stability_indices, score = scores, nzero = nzero,
-                    coef = I(coefs), vars.idx = I(vars_idx)))
+                    vars.idx = I(vars_idx), coefs = I(coefs), 
+                    coefs.p.val = I(coefs_p_val)))
 }
 
 

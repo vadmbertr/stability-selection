@@ -49,11 +49,15 @@ get_fig_nz_score <- function(mods_summary) {
 
 
 ## ---- fig_coef ---------------------------------------------------------------
-get_coef_df <- function(mods_summary, coef_name) {
+get_coefs_df <- function(mods_summary, signif_level) {
   df <-  lapply(rownames(mods_summary), function(mod_name) {
     r <- mods_summary[mod_name, ]
-    f <- data.frame(model = mod_name, coef = r[, coef_name])
-    colnames(f) <- c("model", coef_name)
+    coef <- unlist(r$coefs)
+    if (!is.null(signif_level)) {
+      coef <- coef[ unlist(r$coefs.p.val) <= signif_level]
+    }
+    f <- data.frame(model = mod_name, coef = coef)
+    colnames(f) <- c("model", "coef")
     rownames(f) <- NULL
     return(f)
   })
@@ -61,8 +65,8 @@ get_coef_df <- function(mods_summary, coef_name) {
   return(df)
 }
 
-get_fig_coef <- function(mods_summary) {
-  df <- get_coef_df(mods_summary, "coef")
+get_fig_coefs <- function(mods_summary, signif_level = NULL) {
+  df <- get_coefs_df(mods_summary, signif_level)
   ggplot(data = df) +
     geom_boxplot(aes(y = coef, fill = model)) +
     scale_fill_discrete(name = "Modèle") +
@@ -71,20 +75,17 @@ get_fig_coef <- function(mods_summary) {
     theme_bw()
 }
 
-get_fig_signif_coef <- function(X_train, y_train, mods_summary, 
-                                signif_level = 0.001) {
-  signif_coefs <- lapply(mods_summary$vars.idx, function(v_idx) {
-    model <- get_glm(X_train, y_train, v_idx)
-    coefs <- get_coef(model)
-    return(coefs[Anova(model)$`Pr(>Chisq)`<= signif_level])
-  })
-  mods_summary$signif.coef <- signif_coefs
+signif_codes <- c("0.001" = "***", "0.01" = "**", "0.05" = "*")
+get_signif_code <- function(signif_level) {
+  return(signif_codes[[as.character(signif_level)]])
+}
+
+get_fig_signif_coefs <- function(mods_summary, signif_level = 0.001) {
+  get_fig_coefs(mods_summary, signif_level) +
+    labs(y = paste0("Coefficients significatifs ", 
+                    get_signif_code(signif_level)))
+}
+
+get_table_signif_coefs <- function(mods_summary) {
   
-  df <- get_coef_df(mods_summary, "signif.coef")
-  ggplot(data = df) +
-    geom_boxplot(aes(y = signif.coef, fill = model)) +
-    scale_fill_discrete(name = "Modèle") +
-    scale_x_continuous(breaks = NULL) +
-    labs(y = "Coefficients significatifs", x = "Modèle") +
-    theme_bw()
 }

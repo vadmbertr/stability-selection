@@ -14,17 +14,21 @@ lasso_pred <- predict(lasso_mod, newx = X.test, type = "class",
                       s = lasso_mod$lambda.1se)[, 1]
 lasso_vars_idx <- which(lasso_mod$glmnet.fit$beta[,
                           which(lasso_mod$lambda == lasso_mod$lambda.1se)] != 0)
-lasso_coef <- get_coef(X.train, y.train, lasso_vars_idx)
+lasso_coefs <- get_coef(X.train, y.train, lasso_vars_idx)
 # non NA
-lasso_na_coef <- is.na(lasso_coef)
+lasso_na_coefs <- is.na(lasso_coefs)
 # MAJ coefs, vars
-lasso_vars_idx <- lasso_vars_idx[!lasso_na_coef]
-lasso_coef <- lasso_coef[!lasso_na_coef]
+lasso_vars_idx <- lasso_vars_idx[!lasso_na_coefs]
+lasso_coefs <- lasso_coefs[!lasso_na_coefs]
+lasso_coefs_p_val <- Anova(get_glm(X.train, y.train, 
+                                   lasso_vars_idx))$`Pr(>Chisq)`
+names(lasso_coefs_p_val) <- names(lasso_vars_idx)
 lasso_summary <- data.frame(indice = NA,
                             score = get_score(y.test, lasso_pred),
                             nzero = length(lasso_vars_idx),
-                            coef = I(list(lasso_coef)),
-                            vars.idx = I(list(lasso_vars_idx)))
+                            vars.idx = I(list(lasso_vars_idx)),
+                            coefs = I(list(lasso_coefs)),
+                            coefs.p.val = I(list(lasso_coefs_p_val)))
 rownames(lasso_summary) <- "Lasso"
 
 
