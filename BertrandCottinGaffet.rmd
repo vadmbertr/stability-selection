@@ -195,7 +195,7 @@ De plus, nous remarquons que l'amplitude des coefficients du Lasso classique est
 Cela peut également s'expliquer par la tendance du Lasso classique à capter des motifs résistants et sensibles revenant peu régulièrement dans le jeu d'entraînement. \
 Certains de ces motifs rares peuvent se montrer de bons classifieurs et la maximisation de la $log-vraisemblance$ qui est faite pour estimer les coefficients de la regression logistique va tirer les coefficients de ces classifieurs en négatifs pour les motifs sensibles, et en positifs pour les motifs résistants.
 Ce phénomène se retrouve moins dans les modèles de stability selection car en conservant les variables les plus fréquentes il est immaginable que, prises séparément, ces variables soient des classifieurs plus équivalent, et donc que leurs coefficients restent plus proches de zéro.
-La _Figure 4_ présentant les tables de contingence de la présence de certains motifs génomiques et de la résistance à l'antibiotique vient illustrer ces suppositions.
+La ___Figure 4___ présentant les tables de contingence de la présence de certains motifs génomiques et de la résistance à l'antibiotique vient illustrer ces suppositions.
 
 La capacité des modèles de stability selection à capter la résistance plutôt que la sensibilité expliquerait donc les bons résultats prédictifs donnés par celle-ci malgré des supports nettement plus compacts. 
 Dans l'optique d'expliquer la résistance aux antibiotiques plus que de la prédire il n'est pas nécessairement intéressant de limiter l'amplitude des coefficients, en revanche le nombre de variables à considérer reste un critère majeur.
