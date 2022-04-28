@@ -14,7 +14,8 @@ get_fig_stab <- function(stab_path) {
     geom_line(aes(x = lambda, y = freq, group = var, color = color)) +
     scale_color_gradient(low = "yellow", high = "red", limits = c(.6, .8),
                          guide = "none") +
-    labs(x = "Lambda index", y = "Probabilité de sélection")
+    labs(x = "Lambda index", y = "Probabilité de sélection") +
+    theme_bw()
 }
 
 get_fig_reg <- function(reg_path) {
@@ -24,7 +25,8 @@ get_fig_reg <- function(reg_path) {
     geom_line(aes(x = lambda, y = beta, group = var, color = color)) +
     scale_color_gradient(low = "yellow", high = "red", limits = c(0.6, .8),
                          guide = "none") +
-    labs(x = "Lambda index", y = "Coefficient")
+    labs(x = "Lambda index", y = "Coefficient") +
+    theme_bw()
 }
 
 
@@ -86,6 +88,42 @@ get_signif_code <- function(signif_level) {
 get_fig_signif_coefs <- function(mods_summary, signif_level) {
   get_fig_coefs(mods_summary, signif_level) +
     labs(y = paste0("Coefficients ", get_signif_code(signif_level)))
+}
+
+
+get_fig_prensence <- function(X_train, mods_summary, model_name, 
+                              signif_level = NULL) {
+  coefs_df <- get_coefs_df(mods_summary[model_name, ], signif_level)
+  vars_idx <- coefs_df$vars.idx
+  coefs <- coefs_df$coef
+  names(coefs) <- vars_idx
+  coefs <- sort(abs(coefs))
+  
+  df_presence <- as.data.frame(t(apply(X_train[, vars_idx], 2, table)))
+  df_presence$var <- factor(vars_idx, ordered = T, levels = names(coefs))
+  df_presence$coef <- coefs
+  presents <- df_presence[, c("1", "var", "coef")]
+  colnames(presents)[[1]] <- "n"
+  presents$presence <- 1
+  absents <- df_presence[, c("0", "var", "coef")]
+  colnames(absents)[[1]] <- "n"
+  absents$presence <- 0
+  df_presence <- rbind(presents, absents)
+  df_presence$presence <- as.factor(df_presence$presence)
+  levels(df_presence$presence) <- c("Non", "Oui")
+  
+  colors <- c("TRUE" = "green", "FALSE" = "red")
+  coefs_col <- sapply(coefs_df$coef, 
+                      function(i) return(colors[[as.character(i < 0)]]))
+  ggplot(data = df_presence) +
+    geom_bar(aes(x = var, y = n, fill = presence), stat = "identity") +
+    labs(x = "Valeur absolue du coefficient du motif génomique", 
+         y = "n souches") +
+    scale_fill_discrete(name = "Présence") +
+    scale_x_discrete(labels = round(coefs, digits = 2)) +
+    theme_bw() +
+    theme(axis.text.x = element_text(angle = 90, hjust = .5, vjust = .5,
+                                     color = coefs_col))
 }
 
 

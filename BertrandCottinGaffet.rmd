@@ -107,16 +107,20 @@ Nous avons ensuite souhaité observer si cette sélection de variables plus stab
 Pour cela, nous avons calculé le taux de bonne de classification de dix modèles : le Lasso classique et neuf modèles de stability selection à des seuils de stabilité différents.
 Etant donné que le nombre de variables mises en jeu dans les modèles est un facteur important, en particulier pour expliquer la résistance aux antibiotiques et pas uniquement la prédire, nous avons illustré sur la ___Figure 2___ la performance de chacun des modèles en fonction de la taille de leur support.
 
-```{r, fig_perf, fig.height = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et courbes ROC (en bas) des différents modèles"}
+```{r, fig_perf, fig.height = 6, fig.width = 6, fig.cap = "Taux d'agrément en fonction de la taille du support (en haut) et courbes ROC (en bas) des différents modèles"}
 fig_nz_sco <- get_fig_nz_score(mods_summary) +
   scale_x_continuous(breaks = c(seq(0, 25, 5), seq(50, 100, 25)),
                      labels = c(0, rep("", 4), seq(25, 100, 25))) +
   scale_y_continuous(breaks = c(seq(73, 89, 1)),
                      labels = c(rep("", 2), 75, rep("", 4), 80, rep("", 4), 85, 
                                 rep("", 4)))
+fig_legend <- get_legend(fig_nz_sco)
 mods_roc <- get_rocs(X.train, y.train, X.test, y.test, mods_summary)
-fig_roc <- get_fig_roc(mods_roc)
-ggarrange(fig_nz_sco, fig_roc, nrow = 2, common.legend = TRUE, legend = "right")
+fig_roc <- get_fig_roc(mods_roc) +
+  guides(color = "none")
+ggarrange(fig_nz_sco + guides(color = "none", shape = "none"),
+          ggarrange(fig_roc, fig_legend, widths = c(3,2), ncol = 2), 
+          nrow = 2, align = "v")
 ```
 
 Il est visible que le taux d'agrément de sept des modèles de stability selection est comparable à celui du Lasso (et meilleur pour quatre d'entre eux), tout en divisant par cinq, voire dix, le nombre de variables utilisées. \
@@ -134,17 +138,12 @@ Pour rappel, dans le cadre de la régression logistique avec des prédicteurs bi
 
 La ___Figure 3___ illustre la répartition des coefficients des différents modèles pour plusieurs niveaux de significativité.
 
-```{r, fig_coef, fig.height = 6, fig.cap = "Boîtes à moustaches des coefficients. Sans restiction (en haut à gauche) ; aux niveaux 0.01 (en haut à droite), 0.05 (en bas à gauche) et 0.001 (en bas à droite)"}
+```{r, fig_coef, fig.height = 4, fig.cap = "Boîtes à moustaches des coefficients. Sans restiction (en haut à gauche) ; aux niveaux 0.01 (en haut à droite), 0.05 (en bas à gauche) et 0.001 (en bas à droite)"}
 fig_coefs <- get_fig_coefs(mods_summary) +
-  scale_y_continuous(limits = c(-25, 25))
-fig_signif_coefs_01 <- get_fig_signif_coefs(mods_summary, 0.05) +
-  scale_y_continuous(limits = c(-25, 25))
-fig_signif_coefs_05 <- get_fig_signif_coefs(mods_summary, 0.01) +
   scale_y_continuous(limits = c(-25, 25))
 fig_signif_coefs_001 <- get_fig_signif_coefs(mods_summary, 0.001) +
   scale_y_continuous(limits = c(-25, 25))
-ggarrange(fig_coefs, fig_signif_coefs_01, fig_signif_coefs_05, 
-          fig_signif_coefs_001, ncol = 2, nrow = 2, common.legend = TRUE, 
+ggarrange(fig_coefs, fig_signif_coefs_001, ncol = 2, common.legend = TRUE, 
           legend = "right")
 ```
 
@@ -153,8 +152,21 @@ Nous pouvons donc en déduire que les modèles de stability selection retournent
 La nature de la stability selection semble suggérer que les motifs sensibles à l'antibiotique sont moins souvent retrouvés dans les souches bactériennes, à l'inverse des motifs résistants.
 Lorsqu'il s'agit d'utiliser le modèle ajusté sur des souches bactériennes nouvelles, non utilisées pour l'entraînement, il faut donc qu'un nombre de motifs sensibles bien plus importants que de motifs résistants soient connus du modèle pour que la potentielle sensibilité des nouvelles souches soit captée.
 
+```{r, fig_presence, fig.height = 6, fig.cap = "Diagrammes en bâtons de la présence ou de l'absence des motifs génomiques significatifs en fonction de la valeur absolue du coefficient ajusté par régression logistique. En haut, pour les variables sélectionnées par Lasso, en bas par stability selection avec un seuil de stabilité à 0.9. Les coefficients colorés en vert sont négatifs (sensibilité) et en rouges, positifs (résistance)", eval = F}
+fig_pres_lasso <- get_fig_prensence(X.train, mods_summary, "Lasso", 0.001)
+fig_pres_stab <- get_fig_prensence(X.train, mods_summary, 
+                                   "StabSel-0.9 (cv_1sd)", 0.001)
+
+fig <- ggarrange(fig_pres_lasso + rremove("ylab") + rremove("xlab"), 
+                 fig_pres_stab + rremove("ylab") + rremove("xlab"),
+                 nrow = 2, common.legend = TRUE, legend = "right")
+annotate_figure(fig, left = textGrob("n souches", rot = 90, vjust = 1),
+                bottom = textGrob("Valeur absolue du coefficient du motif génomique"))
+```
+
+
 ```{r, fig_mosaic, fig.height = 6, fig.cap = "Diagrammes en mosaique de la résistance antibiotique en fonction de la présence de motifs génomiques. En haut pour le modèle Lasso et en bas pour le stability selection au seuil 0.9. A gauche le motif dont la valeur absolue du coefficient est la plus faible et à droite la plus élevée"}
-lasso_coefs <- get_coefs_df(mods_summary["Lasso", ], 0.05)
+lasso_coefs <- get_coefs_df(mods_summary["Lasso", ], NULL)
 lasso_min_idx <- which.min(abs(lasso_coefs$coef))
 lasso_min_var <- lasso_coefs$vars.idx[[lasso_min_idx]]
 lasso_max_idx <- which.max(abs(lasso_coefs$coef))
@@ -167,7 +179,7 @@ fig_lasso_max <-
   get_mosaic(X.train, y.train, lasso_max_var, lasso_coefs$coef[[lasso_max_idx]],
              "Lasso")
 
-stab_sel_coefs <- get_coefs_df(mods_summary["StabSel-0.9 (cv_1sd)", ], 0.05)
+stab_sel_coefs <- get_coefs_df(mods_summary["StabSel-0.9 (cv_1sd)", ], NULL)
 stab_sel_min_idx <- which.min(abs(stab_sel_coefs$coef))
 stab_sel_min_var <- stab_sel_coefs$vars.idx[[stab_sel_min_idx]]
 stab_sel_max_idx <- which.max(abs(stab_sel_coefs$coef))

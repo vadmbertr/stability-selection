@@ -7,16 +7,17 @@ library(purrr)
 ## ---- eval_func --------------------------------------------------------------
 # retourne un modèle de regression logistique entrainé
 get_glm <- function(X_train, y_train, vars_idx) {
-  return(glm("y ~ .",
-             data = cbind(as.data.frame(as.matrix(X_train[, vars_idx])),
-                          data.frame(y = y_train)),
-             family = "binomial"))
+  data <- cbind(as.data.frame(as.matrix(X_train[, vars_idx])),
+                data.frame(y = y_train))
+  colnames(data) <- c(vars_idx, "y")
+  return(glm("y ~ .", data = data, family = "binomial"))
 }
 
 # retourne les probabilités des classes
 get_predictions <- function(model, X_test, vars_idx) {
-  return(predict(model, newdata = as.data.frame(as.matrix(X_test[, vars_idx])),
-                 type = "response"))
+  data <- as.data.frame(as.matrix(X_test[, vars_idx]))
+  colnames(data) <- vars_idx
+  return(predict(model, newdata = data, type = "response"))
 }
 
 # retourne le taux d'agrément
@@ -24,8 +25,6 @@ get_score <- function(y_test, y_pred) {
   return(sum(y_test == y_pred) / length(y_test) * 100)
 }
 
-# entraine un modèle de régression logistique non pénalisé (avec un jeu
-#   restreint aux variables stables)
 # estime les classes
 # retourne le taux d'agrément
 get_performance <- function(model, X_test, y_test, vars_idx) {
@@ -33,8 +32,6 @@ get_performance <- function(model, X_test, y_test, vars_idx) {
   return(get_score(y_test, y_pred))
 }
 
-# entraine un modèle de régression logistique non pénalisé (avec un jeu
-#   restreint aux variables stables)
 # retourne les coefficients (sans l'intercept)
 get_coef <- function(model) {
   coefs <- model$coefficients
