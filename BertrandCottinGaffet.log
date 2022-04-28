@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2021/W32TeX) (preloaded format=pdflatex 2022.3.13)  28 APR 2022 11:37
+This is pdfTeX, Version 3.141592653-2.6-1.40.23 (TeX Live 2021/W32TeX) (preloaded format=pdflatex 2022.3.13)  28 APR 2022 15:41
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -842,24 +842,24 @@ Package microtype Info: Character `029' is missing
 (microtype)             in font `T1/lmr/m/sc/12'.
 (microtype)             Ignoring protrusion settings for this character.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 1
-70.
+77.
 (d:/Installations/texlive/2021/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 194.
+(Font)              <10> on input line 200.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 194.
+(Font)              <7> on input line 200.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 194.
+(Font)              <5> on input line 200.
 [1
 
 {d:/Installations/texlive/2021/texmf-var/fonts/map/pdftex/updmap/pdftex.map}]
 
-LaTeX Warning: Command \' invalid in math mode on input line 218.
+LaTeX Warning: Command \' invalid in math mode on input line 224.
 
 
-LaTeX Warning: Command \' invalid in math mode on input line 218.
+LaTeX Warning: Command \' invalid in math mode on input line 224.
 
 <BertrandCottinGaffet_files/figure-latex/fig_chemins-1.pdf, id=31, 578.16pt x 2
 16.81pt>
@@ -867,7 +867,7 @@ File: BertrandCottinGaffet_files/figure-latex/fig_chemins-1.pdf Graphic file (t
 ype pdf)
 <use BertrandCottinGaffet_files/figure-latex/fig_chemins-1.pdf>
 Package pdftex.def Info: BertrandCottinGaffet_files/figure-latex/fig_chemins-1.
-pdf  used on input line 247.
+pdf  used on input line 253.
 (pdftex.def)             Requested size: 469.75385pt x 176.15768pt.
 [2 <./BertrandCottinGaffet_files/figure-latex/fig_chemins-1.pdf>]
 <BertrandCottinGaffet_files/figure-latex/fig_perf-1.pdf, id=49, 578.16pt x 433.
@@ -876,7 +876,7 @@ File: BertrandCottinGaffet_files/figure-latex/fig_perf-1.pdf Graphic file (type
  pdf)
 <use BertrandCottinGaffet_files/figure-latex/fig_perf-1.pdf>
 Package pdftex.def Info: BertrandCottinGaffet_files/figure-latex/fig_perf-1.pdf
-  used on input line 282.
+  used on input line 289.
 (pdftex.def)             Requested size: 469.75385pt x 352.31538pt.
 [3 <./BertrandCottinGaffet_files/figure-latex/fig_perf-1.pdf>]
 <BertrandCottinGaffet_files/figure-latex/fig_coef-1.pdf, id=62, 578.16pt x 433.
@@ -885,7 +885,7 @@ File: BertrandCottinGaffet_files/figure-latex/fig_coef-1.pdf Graphic file (type
  pdf)
 <use BertrandCottinGaffet_files/figure-latex/fig_coef-1.pdf>
 Package pdftex.def Info: BertrandCottinGaffet_files/figure-latex/fig_coef-1.pdf
-  used on input line 332.
+  used on input line 338.
 (pdftex.def)             Requested size: 469.75385pt x 352.31538pt.
 <BertrandCottinGaffet_files/figure-latex/fig_mosaic-1.pdf, id=63, 578.16pt x 43
 3.62pt>
@@ -893,59 +893,59 @@ File: BertrandCottinGaffet_files/figure-latex/fig_mosaic-1.pdf Graphic file (ty
 pe pdf)
 <use BertrandCottinGaffet_files/figure-latex/fig_mosaic-1.pdf>
 Package pdftex.def Info: BertrandCottinGaffet_files/figure-latex/fig_mosaic-1.p
-df  used on input line 357.
+df  used on input line 364.
 (pdftex.def)             Requested size: 469.75385pt x 352.31538pt.
 [4 <./BertrandCottinGaffet_files/figure-latex/fig_coef-1.pdf>] [5 <./BertrandCo
 ttinGaffet_files/figure-latex/fig_mosaic-1.pdf>]
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 4
-01.
+28.
 (d:/Installations/texlive/2021/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 408.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 435.
 
 LaTeX Font Warning: Font shape `T1/lmtt/bx/it' in size <10> not available
-(Font)              Font shape `T1/lmtt/b/sl' tried instead on input line 408.
+(Font)              Font shape `T1/lmtt/b/sl' tried instead on input line 435.
 
 LaTeX Font Info:    Trying to load font information for TS1+lmtt on input line 
-423.
+450.
 (d:/Installations/texlive/2021/texmf-dist/tex/latex/lm/ts1lmtt.fd
 File: ts1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 ) [6]
-Underfull \vbox (badness 10000) detected at line 581
+Underfull \vbox (badness 10000) detected at line 608
  []
 
 
-Underfull \vbox (badness 10000) detected at line 581
+Underfull \vbox (badness 10000) detected at line 608
  []
 
 [7]
-Underfull \vbox (badness 10000) detected at line 581
+Underfull \vbox (badness 10000) detected at line 608
  []
 
 
-Underfull \vbox (badness 10000) detected at line 581
+Underfull \vbox (badness 10000) detected at line 608
  []
 
 [8] [9]
-Underfull \vbox (badness 10000) detected at line 687
+Underfull \vbox (badness 10000) detected at line 714
  []
 
 
-Underfull \vbox (badness 10000) detected at line 687
+Underfull \vbox (badness 10000) detected at line 714
  []
 
 [10]
-Underfull \vbox (badness 4792) detected at line 800
+Underfull \vbox (badness 6141) detected at line 827
  []
 
 [11]
-Underfull \vbox (badness 10000) detected at line 800
+Underfull \vbox (badness 10000) detected at line 827
  []
 
 
-Underfull \vbox (badness 10000) detected at line 800
+Underfull \vbox (badness 10000) detected at line 827
  []
 
 [12]
@@ -958,11 +958,11 @@ Package logreq Info: Writing requests to 'BertrandCottinGaffet.run.xml'.
 
  ) 
 Here is how much of TeX's memory you used:
- 23308 strings out of 478276
- 410094 string characters out of 5843503
- 1166910 words of memory out of 5000000
+ 23314 strings out of 478276
+ 410150 string characters out of 5843503
+ 1168910 words of memory out of 5000000
  41026 multiletter control sequences out of 15000+600000
- 537174 words of font info for 144 fonts, out of 8000000 for 9000
+ 537423 words of font info for 147 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  74i,12n,77p,1017b,1284s stack positions out of 5000i,500n,10000p,200000b,80000s
 {d:/Installations/texlive/2021/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}{d:/I
@@ -985,7 +985,7 @@ b><d:/Installations/texlive/2021/texmf-dist/fonts/type1/public/lm/lmsy10.pfb><d
 stallations/texlive/2021/texmf-dist/fonts/type1/public/lm/lmtko10.pfb><d:/Insta
 llations/texlive/2021/texmf-dist/fonts/type1/public/lm/lmtt10.pfb><d:/Installat
 ions/texlive/2021/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on BertrandCottinGaffet.pdf (13 pages, 606193 bytes).
+Output written on BertrandCottinGaffet.pdf (13 pages, 607366 bytes).
 PDF statistics:
  247 PDF objects out of 1000 (max. 8388607)
  186 compressed objects within 2 object streams
