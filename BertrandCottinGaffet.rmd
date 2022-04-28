@@ -150,9 +150,8 @@ ggarrange(fig_coefs, fig_signif_coefs_01, fig_signif_coefs_05,
 
 Nous constatons que les coefficients obtenus par stability selection (quelque soit le seuil de stabilité) sont majoritairement positifs tandis que les coefficients du Lasso classique sont positifs et négatifs. \
 Nous pouvons donc en déduire que les modèles de stability selection retournent les motifs génomiques résistants à l'antibiotique (coefficients positifs) alors que le modèle Lasso classique retourne les motifs génomiques résistants et sensibles (coefficients négatifs) à l'antibiotique. 
-La nature de la stability selection semble suggérer que les motifs sensibles à l'antibiotique sont moins souvent retrouvés dans les souches bactériennes, à l'inverse des motifs résistants.
-Lorsqu'il s'agit d'utiliser le modèle ajusté sur des souches bactériennes nouvelles, non utilisées pour l'entraînement, il faut donc qu'un nombre de motifs sensibles bien plus importants que de motifs résistants soient connus du modèle pour que la potentielle sensibilité des nouvelles souches soit captée.
-
+La nature de la stability selection semble suggérer que les différents motifs sensibles à l'antibiotique sont moins récurrents dans les souches bactériennes, à l'inverse des motifs résistants. Il faudrait donc que le nombre de motifs sensibles différents connus du modèle ajusté soit supérieur au nombre de motifs 
+résistants différents connus pour que la potentielle sensibilité de nouvelles souches soit captée à l'utilisation du modèle.
 ```{r, fig_mosaic, fig.height = 6, fig.cap = "Diagrammes en mosaique de la résistance antibiotique en fonction de la présence de motifs génomiques. En haut pour le modèle Lasso et en bas pour le stability selection au seuil 0.9. A gauche le motif dont la valeur absolue du coefficient est la plus faible et à droite la plus élevée"}
 lasso_coefs <- get_coefs_df(mods_summary["Lasso", ], 0.05)
 lasso_min_idx <- which.min(abs(lasso_coefs$coef))
