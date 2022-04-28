@@ -161,6 +161,12 @@ annotate_figure(fig, bottom = textGrob("Modèle"))
 \quad Nous pouvons donc en déduire que les modèles de stability selection retournent les motifs génomiques résistants à l'antibiotique (coefficients positifs) alors que le modèle Lasso classique retourne les motifs génomiques résistants et sensibles (coefficients négatifs) à l'antibiotique. 
 La nature de la stability selection semble suggérer que les différents motifs sensibles à l'antibiotique sont moins souvent présents dans les souches bactériennes que les motifs résistants. Capturer la sensibilité aux antibiotiques relèverait donc d'un sur-apprentissage car cette sensibilité à peu de chance d'être retrouvée sur de nouvelles souches.
 
+\quad De plus, nous remarquons que l'amplitude des coefficients du Lasso classique est très forte, y compris en se restreignant uniquement aux coefficients significatifs, ce qui est nettement moins le cas pour les modèles de stability selection.
+Cela peut également s'expliquer par la tendance du Lasso classique à capter des motifs résistants et sensibles revenant peu régulièrement dans le jeu d'entraînement.\
+Certains de ces motifs rares peuvent se montrer de bons classifieurs et la maximisation de la $log-vraisemblance$ qui est faite pour estimer les coefficients de la regression logistique va tirer les coefficients de ces classifieurs en négatifs pour les motifs sensibles, et en positifs pour les motifs résistants. Ce phénomène est connu comme la séparation complète, ou quasi-complète.
+Ces motifs rares étant peu fréquents ils ne sont pas conservés par la stability selection et donc la valeur absolue des coefficients restants n'est pas gonflée artificiellement.
+La ___Figure 4___ présentant les tables de contingence de la présence de certains motifs génomiques et de la résistance à l'antibiotique vient illustrer ces observations.
+
 ```{r, fig_mosaic, fig.height = 6, fig.cap = "Diagrammes en mosaique de la résistance antibiotique en fonction de la présence de motifs génomiques. En haut pour le modèle Lasso et en bas pour le stability selection au seuil 0.9. A gauche le motif dont la valeur absolue du coefficient est la plus faible et à droite la plus élevée"}
 lasso_coefs <- get_coefs_df(mods_summary["Lasso", ], NULL)
 lasso_min_idx <- which.min(abs(lasso_coefs$coef))
@@ -198,12 +204,6 @@ fig <- ggarrange(fig_lasso_min + rremove("ylab") + rremove("xlab"),
 annotate_figure(fig, left = textGrob("Souche", rot = 90, vjust = 1),
                 bottom = textGrob("Motif génomique"))
 ```
-
-\quad De plus, nous remarquons que l'amplitude des coefficients du Lasso classique est très forte, y compris en se restreignant uniquement aux coefficients significatifs, ce qui est nettement moins le cas pour les modèles de stability selection.
-Cela peut également s'expliquer par la tendance du Lasso classique à capter des motifs résistants et sensibles revenant peu régulièrement dans le jeu d'entraînement.\
-Certains de ces motifs rares peuvent se montrer de bons classifieurs et la maximisation de la $log-vraisemblance$ qui est faite pour estimer les coefficients de la regression logistique va tirer les coefficients de ces classifieurs en négatifs pour les motifs sensibles, et en positifs pour les motifs résistants. Ce phénomène est connu comme la séparation complète, ou quasi-complète.
-Ces motifs rares étant peu fréquents ils ne sont pas conservés par la stability selection et donc la valeur absolue des coefficients restants n'est pas gonflée artificiellement.
-La ___Figure 4___ présentant les tables de contingence de la présence de certains motifs génomiques et de la résistance à l'antibiotique vient illustrer ces observations.
 
 \quad La capacité des modèles de stability selection à capter la résistance plutôt que la sensibilité et à conserver des motifs plus communs expliqueraient donc les bons résultats prédictifs donnés par celle-ci malgré des supports nettement plus compacts.
 A noter que dans l'optique d'expliquer la résistance aux antibiotiques plus que de la prédire il n'est pas nécessairement intéressant de limiter l'amplitude des coefficients, en revanche le nombre de variables à considérer et la stabilité de la sélection reste un critère important.
