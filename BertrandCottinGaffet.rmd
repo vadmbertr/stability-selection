@@ -205,7 +205,7 @@ annotate_figure(fig, left = textGrob("Souche", rot = 90, vjust = 1),
                 bottom = textGrob("Motif génomique"))
 ```
 
-\quad La capacité des modèles de stability selection à capter la résistance plutôt que la sensibilité et à conserver des motifs plus communs expliqueraient donc les bons résultats prédictifs donnés par celle-ci malgré des supports nettement plus compacts.
+\quad La capacité des modèles de stability selection à capter la résistance plutôt que la sensibilité et à rédiuire la taille du support en conservant les motifs les plus communs expliqueraient donc les bons résultats prédictifs donnés par celle-ci malgré des supports nettement plus compacts.
 A noter que dans l'optique d'expliquer la résistance aux antibiotiques plus que de la prédire, il n'est pas nécessairement intéressant de limiter l'amplitude des coefficients. En revanche, le nombre de variables à considérer et la stabilité de la sélection restent des critères importants.
 
 # Conclusion
