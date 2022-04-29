@@ -223,6 +223,8 @@ Le seuil de sélection idéal pour les modèles de stability sélection semble �
 \quad L'efficacité de ces modèles de stability sélection -- malgré un nombre de variables mis en jeu réduit -- semble 
 être due au fait que la procédure Lasso classique conserve le bruit de nombreux motifs génomiques rares sensibles en plus des motifs résistants plus récurrents.
 
+\newpage
+
 # Annexes
 
 ***stabsel_func.R***
